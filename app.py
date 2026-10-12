@@ -67,6 +67,41 @@ custom_css = """
 st.markdown(custom_css, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
+# 1.1 MECANISMO DE LOGIN E PROTEÇÃO POR SENHA
+# -------------------------------------------------------------
+def check_password():
+    """Retorna True se a senha estiver correta."""
+    def password_entered():
+        # Verifica se a senha definida nos Secrets bate com o input
+        target_password = st.secrets.get("PASSWORD", "123456") # '123456' é senha padrão caso não configure nos Secrets
+        if st.session_state["password_input"] == target_password:
+            st.session_state["password_correct"] = True
+            del st.session_state["password_input"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if not st.session_state["password_correct"]:
+        st.markdown("<h2 style='text-align: center; color: #3B82F6;'>🔐 Acesso Restrito ao Painel</h2>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.text_input(
+                "Digite sua senha de acesso:", 
+                type="password", 
+                on_change=password_entered, 
+                key="password_input"
+            )
+            if "password_correct" in st.session_state and not st.session_state["password_correct"] and "password_input" not in st.session_state:
+                st.error("😕 Senha incorreta. Tente novamente.")
+        return False
+    return True
+
+if not check_password():
+    st.stop()  # Interrompe a execução do resto do app até acertar a senha
+
+# -------------------------------------------------------------
 # 2. CARREGAMENTO E TRATAMENTO DOS DADOS
 # -------------------------------------------------------------
 SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
@@ -404,7 +439,7 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 11. DIVERSIFICAÇÃO & ALOCAÇÃO POR CLASSE DE ATIVO (DONUT CHART)
+        # 11. DIVERSIFICAÇÃO & ALOCAÇÃO POR CLASSE DE ATIVO
         # -------------------------------------------------------------
         st.markdown("### 🍩 Diversificação Patrimonial por Classe de Ativo")
         st.markdown(f"<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise de risco e distribuição percentual da carteira em <b>{ultimo_mes.upper()}</b></p>", unsafe_allow_html=True)
