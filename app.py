@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import time
 import requests
 import yfinance as yf
@@ -16,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS Avançada (UI Design Premium & noindex)
+# Estilização CSS Avançada (UI Design Premium, Botão Flutuante & noindex)
 custom_css = """
 <meta name="robots" content="noindex, nofollow">
 <style>
@@ -93,6 +92,33 @@ custom_css = """
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
     }
 
+    /* 🚀 BOTÃO FLUTUANTE DE VOLTAR AO TOPO */
+    .back-to-top-btn {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        z-index: 9999;
+        background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
+        color: #3B82F6 !important;
+        border: 1px solid #3B82F6;
+        border-radius: 50px;
+        padding: 10px 18px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-decoration: none !important;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+        transition: all 0.25s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .back-to-top-btn:hover {
+        background: #3B82F6;
+        color: #FFFFFF !important;
+        transform: translateY(-3px);
+        box-shadow: 0 12px 25px rgba(59, 130, 246, 0.4);
+    }
+
     [data-testid="stSidebar"] {
         background-color: #0F131C;
         border-right: 1px solid #1F2937;
@@ -163,11 +189,11 @@ if not check_password():
     st.stop()
 
 # -------------------------------------------------------------
-# 1.2 CONSULTA DA API DO BANCO CENTRAL & COTAÇÃO + GRÁFICO DO MXRF11
+# 1.2 CONSULTA DA API DO BANCO CENTRAL & COTAÇÃO DO MXRF11
 # -------------------------------------------------------------
 @st.cache_data(ttl=1800)
 def fetch_market_indicators():
-    """Busca Selic, CDI e cotação detalhada com variação do MXRF11 na B3."""
+    """Busca Selic, CDI e cotação com variação do MXRF11 na B3."""
     try:
         url_selic = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json"
         res_selic = requests.get(url_selic, timeout=5).json()
@@ -177,7 +203,6 @@ def fetch_market_indicators():
     except Exception:
         selic_str, cdi_str = "10.75% a.a.", "10.65% a.a."
 
-    # Busca cotação e variação detalhada do MXRF11 via Yahoo Finance
     try:
         ticker = yf.Ticker("MXRF11.SA")
         hist = ticker.history(period="5d")
@@ -198,16 +223,13 @@ def fetch_market_indicators():
             var_html = f"<span style='color: #10B981; font-weight: 600; font-size: 0.85rem;'>+{diff_abs:.2f} (+{diff_pct:.2f}%)</span>"
         else:
             var_html = f"<span style='color: #EF4444; font-weight: 600; font-size: 0.85rem;'>{diff_abs:.2f} ({diff_pct:.2f}%)</span>"
-            
-        df_hist_chart = hist.reset_index()[["Date", "Close"]]
     except Exception:
         mxrf_str = "R$ 9.45"
         var_html = "<span style='color: #10B981; font-weight: 600; font-size: 0.85rem;'>+0.10 (+1.07%)</span>"
-        df_hist_chart = pd.DataFrame()
 
-    return selic_str, cdi_str, mxrf_str, var_html, df_hist_chart
+    return selic_str, cdi_str, mxrf_str, var_html
 
-selic_str, cdi_str, mxrf11_price_str, mxrf11_var_html, df_mxrf_chart = fetch_market_indicators()
+selic_str, cdi_str, mxrf11_price_str, mxrf11_var_html = fetch_market_indicators()
 
 # -------------------------------------------------------------
 # 2. CARREGAMENTO DOS DADOS DO GOOGLE SHEETS
@@ -335,7 +357,13 @@ try:
                     return f"<div class='kpi-badge badge-neg'>▼ {val:.1f}% vs mês ant.</div>"
 
         # -------------------------------------------------------------
-        # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO (COM MXRF11 AO VIVO)
+        # ⚓ ÂNCORA DO TOPO DA PÁGINA + BOTÃO FLUTUANTE DE VOLTAR AO TOPO
+        # -------------------------------------------------------------
+        st.markdown("<a id='topo'></a>", unsafe_allow_html=True)
+        st.markdown("<a href='#topo' class='back-to-top-btn'>⬆️ Topo</a>", unsafe_allow_html=True)
+
+        # -------------------------------------------------------------
+        # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO
         # -------------------------------------------------------------
         st.markdown(f"<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial ({ano_selecionado})</h2>", unsafe_allow_html=True)
         st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 15px;'>Visão executiva de fluxo de caixa, alocação e indicadores de mercado</p>", unsafe_allow_html=True)
@@ -353,27 +381,6 @@ try:
         with col_m4:
             st.caption("📅 Mês de Referência")
             st.markdown(f"**{ultimo_mes.upper()} / {ano_selecionado}**")
-
-        # Expander para exibir a curva recente da cotação do MXRF11
-        if not df_mxrf_chart.empty:
-            with st.expander("📈 Visualizar gráfico da cotação recente do MXRF11"):
-                fig_mxrf_mini = px.area(
-                    df_mxrf_chart, 
-                    x="Date", 
-                    y="Close", 
-                    title="Oscilação Recente do MXRF11 (B3)",
-                    color_discrete_sequence=["#10B981"]
-                )
-                fig_mxrf_mini.update_layout(
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    font={"color": "#E5E7EB"},
-                    height=220,
-                    margin=dict(l=10, r=10, t=30, b=10),
-                    xaxis_title="",
-                    yaxis_title="Preço (R$)"
-                )
-                st.plotly_chart(fig_mxrf_mini, use_container_width=True)
 
         st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
 
@@ -488,7 +495,7 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 8. INVESTIMENTOS (SUBTÍTULO ATUALIZADO)
+        # 8. INVESTIMENTOS
         # -------------------------------------------------------------
         st.markdown("<a id='investimentos'></a>", unsafe_allow_html=True)
         st.markdown("### 📊 Posição & Evolução Patrimonial dos Investimentos")
