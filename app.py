@@ -92,7 +92,16 @@ custom_css = """
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
     }
 
-    /* 🚀 BOTÃO FLUTUANTE DE VOLTAR AO TOPO */
+    /* Container de Filtros Rápidos */
+    .filter-box {
+        background-color: #161B26;
+        border: 1px solid #232D3F;
+        border-radius: 12px;
+        padding: 12px 18px;
+        margin-bottom: 20px;
+    }
+
+    /* BOTÃO FLUTUANTE DE VOLTAR AO TOPO */
     .back-to-top-btn {
         position: fixed;
         bottom: 25px;
@@ -240,15 +249,64 @@ except Exception:
     SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
 
 # -------------------------------------------------------------
-# 3. SIDEBAR DE CONFIGURAÇÃO (ANO, MESES & LOGOUT)
+# ⚓ ÂNCORA DO TOPO DA PÁGINA + BOTÃO FLUTUANTE DE VOLTAR AO TOPO
 # -------------------------------------------------------------
-st.sidebar.markdown("### ⚙️ Painel de Controle")
+st.markdown("<a id='topo'></a>", unsafe_allow_html=True)
+st.markdown("<a href='#topo' class='back-to-top-btn'>⬆️ Topo</a>", unsafe_allow_html=True)
 
-ano_selecionado = st.sidebar.selectbox(
-    "Ano / Aba da Planilha", 
-    ["2025", "2026", "2027"], 
-    index=1
-)
+# -------------------------------------------------------------
+# 3. HEADER DO DASHBOARD & BENCHMARKS MACRO
+# -------------------------------------------------------------
+st.markdown("<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
+st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 15px;'>Visão executiva de fluxo de caixa, alocação e indicadores de mercado</p>", unsafe_allow_html=True)
+
+col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+with col_m1:
+    st.caption("🏛️ Meta Selic (BCB)")
+    st.markdown(f"**{selic_str}**")
+with col_m2:
+    st.caption("📉 CDI Estimado")
+    st.markdown(f"**{cdi_str}**")
+with col_m3:
+    st.caption("🏢 MXRF11 (B3)")
+    st.markdown(f"**{mxrf11_price_str}** &nbsp; {mxrf11_var_html}", unsafe_allow_html=True)
+with col_m4:
+    st.caption("⚡ Status Conexão")
+    st.markdown("**🟢 Planilha Ativa**")
+
+st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
+
+# -------------------------------------------------------------
+# 🚀 MENU DE NAVEGAÇÃO RÁPIDA (QUICK LINKS)
+# -------------------------------------------------------------
+st.markdown("##### 🧭 Navegação Rápida")
+nav_col1, nav_col2, nav_col3, nav_col4, nav_col5 = st.columns(5)
+with nav_col1:
+    st.markdown("<a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Fluxo de Caixa</a>", unsafe_allow_html=True)
+with nav_col2:
+    st.markdown("<a class='nav-link-btn' href='#investimentos'>📊 Investimentos</a>", unsafe_allow_html=True)
+with nav_col3:
+    st.markdown("<a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro / Prejuízo</a>", unsafe_allow_html=True)
+with nav_col4:
+    st.markdown("<a class='nav-link-btn' href='#raio-x'>🔍 Raio-X Ativo</a>", unsafe_allow_html=True)
+with nav_col5:
+    st.markdown("<a class='nav-link-btn' href='#diversificacao'>🍩 Alocação</a>", unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# -------------------------------------------------------------
+# 🎛️ NOVO: PAINEL DE FILTROS DE PERÍODO (ANO & MESES) NO CORPO PRINCIPAL
+# -------------------------------------------------------------
+st.markdown("##### 🔍 Filtros do Período de Análise")
+f_col1, f_col2, f_col3 = st.columns([1, 2.5, 0.8])
+
+with f_col1:
+    ano_selecionado = st.selectbox(
+        "Ano de Referência", 
+        ["2025", "2026", "2027"], 
+        index=1,
+        key="main_ano"
+    )
 
 SHEET_NAME = ano_selecionado
 csv_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={SHEET_NAME}"
@@ -266,23 +324,27 @@ try:
     meses_ordem_cronologica = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
     meses = [c for c in meses_ordem_cronologica if c in df_raw.columns]
     
-    mes_selecionado = st.sidebar.multiselect(
-        "Filtro por Mês", 
-        meses, 
-        default=[m for m in meses if m in ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out']]
-    )
-    
-    st.sidebar.divider()
-    
-    col_sb1, col_sb2 = st.sidebar.columns(2)
-    with col_sb1:
-        if st.button("🔄 Atualizar", use_container_width=True):
+    with f_col2:
+        mes_selecionado = st.multiselect(
+            "Meses Selecionados", 
+            meses, 
+            default=[m for m in meses if m in ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out']],
+            key="main_meses"
+        )
+
+    with f_col3:
+        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+        if st.button("🔄 Atualizar Dados", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-    with col_sb2:
-        if st.button("🔒 Sair", use_container_width=True):
-            st.session_state["password_correct"] = False
-            st.rerun()
+
+    # Espelho dos Filtros na Sidebar para consistência
+    st.sidebar.markdown("### ⚙️ Painel de Controle")
+    st.sidebar.info(f"📅 **Ano Selecionado:** {ano_selecionado}")
+    st.sidebar.divider()
+    if st.sidebar.button("🔒 Encerrar Sessão (Sair)", use_container_width=True):
+        st.session_state["password_correct"] = False
+        st.rerun()
 
     # -------------------------------------------------------------
     # 4. PROCESSAMENTO DAS REGRAS FINANCEIRAS
@@ -355,50 +417,6 @@ try:
                     return f"<div class='kpi-badge badge-pos'>▲ +{val:.1f}% vs mês ant.</div>"
                 else:
                     return f"<div class='kpi-badge badge-neg'>▼ {val:.1f}% vs mês ant.</div>"
-
-        # -------------------------------------------------------------
-        # ⚓ ÂNCORA DO TOPO DA PÁGINA + BOTÃO FLUTUANTE DE VOLTAR AO TOPO
-        # -------------------------------------------------------------
-        st.markdown("<a id='topo'></a>", unsafe_allow_html=True)
-        st.markdown("<a href='#topo' class='back-to-top-btn'>⬆️ Topo</a>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO
-        # -------------------------------------------------------------
-        st.markdown(f"<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial ({ano_selecionado})</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 15px;'>Visão executiva de fluxo de caixa, alocação e indicadores de mercado</p>", unsafe_allow_html=True)
-
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        with col_m1:
-            st.caption("🏛️ Meta Selic (BCB)")
-            st.markdown(f"**{selic_str}**")
-        with col_m2:
-            st.caption("📉 CDI Estimado")
-            st.markdown(f"**{cdi_str}**")
-        with col_m3:
-            st.caption("🏢 MXRF11 (B3)")
-            st.markdown(f"**{mxrf11_price_str}** &nbsp; {mxrf11_var_html}", unsafe_allow_html=True)
-        with col_m4:
-            st.caption("📅 Mês de Referência")
-            st.markdown(f"**{ultimo_mes.upper()} / {ano_selecionado}**")
-
-        st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 🚀 MENU DE NAVEGAÇÃO RÁPIDA (QUICK LINKS)
-        # -------------------------------------------------------------
-        st.markdown("##### 🧭 Navegação Rápida")
-        nav_col1, nav_col2, nav_col3, nav_col4, nav_col5 = st.columns(5)
-        with nav_col1:
-            st.markdown("<a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Fluxo de Caixa</a>", unsafe_allow_html=True)
-        with nav_col2:
-            st.markdown("<a class='nav-link-btn' href='#investimentos'>📊 Investimentos</a>", unsafe_allow_html=True)
-        with nav_col3:
-            st.markdown("<a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro / Prejuízo</a>", unsafe_allow_html=True)
-        with nav_col4:
-            st.markdown("<a class='nav-link-btn' href='#raio-x'>🔍 Raio-X Ativo</a>", unsafe_allow_html=True)
-        with nav_col5:
-            st.markdown("<a class='nav-link-btn' href='#diversificacao'>🍩 Alocação</a>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
