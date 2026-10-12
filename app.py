@@ -6,7 +6,7 @@ import requests
 import yfinance as yf
 
 # -------------------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM PREMIUM (CSS)
+# 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM RESPONSIVO (CSS)
 # -------------------------------------------------------------
 st.set_page_config(
     page_title="Finances AI | Dashboard Financeiro", 
@@ -15,9 +15,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS Avançada (UI Design Premium, Botão Flutuante & noindex)
+# Estilização CSS com Suporte a Telas Móveis (Responsive Media Queries)
 custom_css = """
 <meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
     .stApp {
         background-color: #0B0E14;
@@ -26,28 +27,24 @@ custom_css = """
     .kpi-card {
         background: linear-gradient(145deg, #161B26 0%, #0F131C 100%);
         border: 1px solid #232D3F;
-        border-radius: 16px;
-        padding: 22px 24px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.5);
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
         overflow: hidden;
-    }
-    .kpi-card:hover {
-        border-color: #3B82F6;
-        transform: translateY(-3px);
-        box-shadow: 0 12px 30px -5px rgba(59, 130, 246, 0.2);
+        margin-bottom: 10px;
     }
     .kpi-title {
         color: #9CA3AF;
-        font-size: 0.825rem;
+        font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
     .kpi-value {
-        font-size: 1.85rem;
+        font-size: 1.5rem;
         font-weight: 800;
         letter-spacing: -0.03em;
         line-height: 1.2;
@@ -56,11 +53,11 @@ custom_css = """
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 3px 8px;
+        padding: 2px 7px;
         border-radius: 20px;
-        font-size: 0.725rem;
+        font-size: 0.70rem;
         font-weight: 600;
-        margin-top: 8px;
+        margin-top: 6px;
     }
     .badge-pos { background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); }
     .badge-neg { background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); }
@@ -72,51 +69,69 @@ custom_css = """
     .val-purple { color: #A855F7; }
 
     /* Botões de Navegação Rápida (Navbar Estilizada) */
+    .nav-container {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
+    }
     .nav-link-btn {
-        display: block;
+        flex: 1 1 calc(20% - 8px);
         text-align: center;
         background: #161B26;
         color: #9CA3AF !important;
-        padding: 10px 14px;
-        border-radius: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
         text-decoration: none !important;
-        font-size: 0.85rem;
+        font-size: 0.80rem;
         font-weight: 600;
         border: 1px solid #232D3F;
         transition: all 0.2s ease;
+        white-space: nowrap;
     }
     .nav-link-btn:hover {
         background-color: #1F2937;
         color: #3B82F6 !important;
         border-color: #3B82F6;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
     }
 
     /* BOTÃO FLUTUANTE DE VOLTAR AO TOPO */
     .back-to-top-btn {
         position: fixed;
-        bottom: 25px;
-        right: 25px;
+        bottom: 20px;
+        right: 15px;
         z-index: 9999;
         background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
         color: #3B82F6 !important;
         border: 1px solid #3B82F6;
         border-radius: 50px;
-        padding: 10px 18px;
-        font-size: 0.85rem;
+        padding: 8px 14px;
+        font-size: 0.78rem;
         font-weight: 700;
         text-decoration: none !important;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
         transition: all 0.25s ease;
-        display: flex;
-        align-items: center;
-        gap: 6px;
     }
-    .back-to-top-btn:hover {
-        background: #3B82F6;
-        color: #FFFFFF !important;
-        transform: translateY(-3px);
-        box-shadow: 0 12px 25px rgba(59, 130, 246, 0.4);
+
+    /* AJUSTES RESPONSIVOS PARA SMARTPHONES */
+    @media (max-width: 768px) {
+        .nav-link-btn {
+            flex: 1 1 calc(50% - 8px);
+            font-size: 0.75rem;
+            padding: 8px 6px;
+        }
+        .kpi-value {
+            font-size: 1.35rem;
+        }
+        .kpi-card {
+            padding: 14px 14px;
+        }
+        h2 {
+            font-size: 1.4rem !important;
+        }
+        h3 {
+            font-size: 1.2rem !important;
+        }
     }
 
     [data-testid="stSidebar"] {
@@ -130,11 +145,16 @@ custom_css = """
 """
 st.markdown(custom_css, unsafe_allow_html=True)
 
+# Configuração Padrão do Plotly para Mobile
+plotly_config = {
+    'displayModeBar': False, 
+    'responsive': True
+}
+
 # -------------------------------------------------------------
 # 1.1 MECANISMO DE LOGIN COM BOTÃO "ACESSAR" & BLOQUEIO
 # -------------------------------------------------------------
 def check_password():
-    """Retorna True se a senha estiver correta e exibe pop-up (toast) de erro se incorreta."""
     MAX_TENTATIVAS = 3
 
     if "login_attempts" not in st.session_state:
@@ -145,8 +165,8 @@ def check_password():
     if st.session_state["login_attempts"] >= MAX_TENTATIVAS:
         remaining_time = int(300 - (time.time() - st.session_state["lockout_time"]))
         if remaining_time > 0:
-            st.markdown("<h2 style='text-align: center; color: #EF4444;'>🚫 Acesso Temporariamente Bloqueado</h2>", unsafe_allow_html=True)
-            st.error(f"Muitas tentativas incorretas ({MAX_TENTATIVAS} erros). Por razões de segurança, aguarde {remaining_time} segundos para tentar novamente.")
+            st.markdown("<h2 style='text-align: center; color: #EF4444;'>🚫 Acesso Bloqueado</h2>", unsafe_allow_html=True)
+            st.error(f"Muitas tentativas. Aguarde {remaining_time}s.")
             return False
         else:
             st.session_state["login_attempts"] = 0
@@ -155,11 +175,11 @@ def check_password():
         st.session_state["password_correct"] = False
 
     if not st.session_state["password_correct"]:
-        st.markdown("<h2 style='text-align: center; color: #3B82F6;'>🔐 Acesso Restrito ao Painel</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #3B82F6;'>🔐 Acesso Restrito</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             with st.form("login_form"):
-                password_input = st.text_input("Digite sua senha de acesso:", type="password")
+                password_input = st.text_input("Senha de acesso:", type="password")
                 submit_button = st.form_submit_button("🔑 Acessar", use_container_width=True)
 
                 if submit_button:
@@ -180,7 +200,7 @@ def check_password():
                             st.rerun()
                         else:
                             tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
-                            st.toast(f"⚠️ Senha incorreta! Tentativas restantes: {tentativas_restantes}", icon="🚨")
+                            st.toast(f"⚠️ Senha incorreta! Tentativas: {tentativas_restantes}", icon="🚨")
                             st.error(f"😕 Senha incorreta. Tentativas restantes: {tentativas_restantes}")
         return False
     return True
@@ -193,7 +213,6 @@ if not check_password():
 # -------------------------------------------------------------
 @st.cache_data(ttl=1800)
 def fetch_market_indicators():
-    """Busca Selic, CDI e cotação com variação do MXRF11 na B3."""
     try:
         url_selic = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json"
         res_selic = requests.get(url_selic, timeout=5).json()
@@ -220,12 +239,12 @@ def fetch_market_indicators():
         mxrf_str = f"R$ {last_price:.2f}"
         
         if diff_abs >= 0:
-            var_html = f"<span style='color: #10B981; font-weight: 600; font-size: 0.85rem;'>+{diff_abs:.2f} (+{diff_pct:.2f}%)</span>"
+            var_html = f"<span style='color: #10B981; font-weight: 600; font-size: 0.80rem;'>+{diff_abs:.2f} (+{diff_pct:.2f}%)</span>"
         else:
-            var_html = f"<span style='color: #EF4444; font-weight: 600; font-size: 0.85rem;'>{diff_abs:.2f} ({diff_pct:.2f}%)</span>"
+            var_html = f"<span style='color: #EF4444; font-weight: 600; font-size: 0.80rem;'>{diff_abs:.2f} ({diff_pct:.2f}%)</span>"
     except Exception:
         mxrf_str = "R$ 9.45"
-        var_html = "<span style='color: #10B981; font-weight: 600; font-size: 0.85rem;'>+0.10 (+1.07%)</span>"
+        var_html = "<span style='color: #10B981; font-weight: 600; font-size: 0.80rem;'>+0.10 (+1.07%)</span>"
 
     return selic_str, cdi_str, mxrf_str, var_html
 
@@ -249,7 +268,7 @@ st.markdown("<a href='#topo' class='back-to-top-btn'>⬆️ Topo</a>", unsafe_al
 # 3. HEADER DO DASHBOARD & BENCHMARKS MACRO
 # -------------------------------------------------------------
 st.markdown("<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 15px;'>Visão executiva de fluxo de caixa, alocação e indicadores de mercado</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 12px;'>Visão executiva de fluxo de caixa, alocação e mercado</p>", unsafe_allow_html=True)
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 with col_m1:
@@ -260,7 +279,7 @@ with col_m2:
     st.markdown(f"**{cdi_str}**")
 with col_m3:
     st.caption("🏢 MXRF11 (B3)")
-    st.markdown(f"**{mxrf11_price_str}** &nbsp; {mxrf11_var_html}", unsafe_allow_html=True)
+    st.markdown(f"**{mxrf11_price_str}** {mxrf11_var_html}", unsafe_allow_html=True)
 with col_m4:
     st.caption("⚡ Status Conexão")
     st.markdown("**🟢 Planilha Ativa**")
@@ -268,10 +287,10 @@ with col_m4:
 st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 🎛️ PAINEL DE FILTROS DE PERÍODO (ANO & MESES) - AGORA ACIMA DA NAV
+# 🎛️ PAINEL DE FILTROS DE PERÍODO (ANO & MESES)
 # -------------------------------------------------------------
 st.markdown("##### 🔍 Filtros do Período de Análise")
-f_col1, f_col2, f_col3 = st.columns([1, 2.5, 0.8])
+f_col1, f_col2, f_col3 = st.columns([1, 2.5, 1])
 
 with f_col1:
     ano_selecionado = st.selectbox(
@@ -307,35 +326,32 @@ try:
 
     with f_col3:
         st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄 Atualizar Dados", use_container_width=True):
+        if st.button("🔄 Atualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
 
-    # Espelho dos Filtros na Sidebar para consistência
-    st.sidebar.markdown("### ⚙️ Painel de Controle")
-    st.sidebar.info(f"📅 **Ano Selecionado:** {ano_selecionado}")
-    st.sidebar.divider()
-    if st.sidebar.button("🔒 Encerrar Sessão (Sair)", use_container_width=True):
+    # Sidebar compacta
+    st.sidebar.markdown("### ⚙️ Painel")
+    st.sidebar.info(f"📅 **Ano:** {ano_selecionado}")
+    if st.sidebar.button("🔒 Sair", use_container_width=True):
         st.session_state["password_correct"] = False
         st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 🚀 MENU DE NAVEGAÇÃO RÁPIDA (QUICK LINKS) - POSICIONADO ABAIXO DOS FILTROS
+    # 🚀 MENU DE NAVEGAÇÃO RÁPIDA (CARROSSEL / GRID COMPACTO NO MOBILE)
     # -------------------------------------------------------------
     st.markdown("##### 🧭 Navegação Rápida")
-    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5 = st.columns(5)
-    with nav_col1:
-        st.markdown("<a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Fluxo de Caixa</a>", unsafe_allow_html=True)
-    with nav_col2:
-        st.markdown("<a class='nav-link-btn' href='#investimentos'>📊 Investimentos</a>", unsafe_allow_html=True)
-    with nav_col3:
-        st.markdown("<a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro / Prejuízo</a>", unsafe_allow_html=True)
-    with nav_col4:
-        st.markdown("<a class='nav-link-btn' href='#raio-x'>🔍 Raio-X Ativo</a>", unsafe_allow_html=True)
-    with nav_col5:
-        st.markdown("<a class='nav-link-btn' href='#diversificacao'>🍩 Alocação</a>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class="nav-container">
+        <a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Caixa</a>
+        <a class='nav-link-btn' href='#investimentos'>📊 Ativos</a>
+        <a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro</a>
+        <a class='nav-link-btn' href='#raio-x'>🔍 Raio-X</a>
+        <a class='nav-link-btn' href='#diversificacao'>🍩 Alocação</a>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -482,9 +498,14 @@ try:
                 color="Valor", 
                 color_continuous_scale=["#3B82F6", "#EF4444"]
             )
-            fig_cat.update_layout(plotly_theme["layout"], coloraxis_showscale=False, height=350)
+            fig_cat.update_layout(
+                plotly_theme["layout"], 
+                coloraxis_showscale=False, 
+                height=380,
+                margin=dict(l=140, r=20, t=20, b=20)
+            )
             fig_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
-            st.plotly_chart(fig_cat, use_container_width=True)
+            st.plotly_chart(fig_cat, use_container_width=True, config=plotly_config)
             
         with col_g2:
             st.markdown("##### 📈 Evolução das Receitas Mês a Mês")
@@ -497,9 +518,13 @@ try:
                 markers=True,
                 color_discrete_sequence=["#10B981"]
             )
-            fig_evo.update_layout(plotly_theme["layout"], height=350)
+            fig_evo.update_layout(
+                plotly_theme["layout"], 
+                height=380,
+                margin=dict(l=50, r=20, t=20, b=30)
+            )
             fig_evo.update_yaxes(tickprefix="R$ ", tickformat="~s")
-            st.plotly_chart(fig_evo, use_container_width=True)
+            st.plotly_chart(fig_evo, use_container_width=True, config=plotly_config)
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
@@ -526,8 +551,8 @@ try:
         fig_inv_bar = px.bar(
             df_inv_bar_data,
             x="Valor", y="Categoria", orientation="h",
-            title=f"🏛️ Saldo de Ativos da Carteira em {ultimo_mes.upper()}",
-            labels={"Valor": "R$ (Saldo em Carteira)", "Categoria": ""},
+            title=f"🏛️ Saldo de Ativos em {ultimo_mes.upper()}",
+            labels={"Valor": "R$", "Categoria": ""},
             color="Valor", 
             color_continuous_scale="Greens",
             text_auto='.2f'
@@ -535,12 +560,12 @@ try:
         fig_inv_bar.update_layout(
             plotly_theme["layout"], 
             coloraxis_showscale=False, 
-            height=450,
-            margin=dict(l=20, r=20, t=50, b=20)
+            height=480,
+            margin=dict(l=150, r=30, t=40, b=20)
         )
         fig_inv_bar.update_xaxes(tickprefix="R$ ", tickformat="~s")
         fig_inv_bar.update_traces(textposition="outside")
-        st.plotly_chart(fig_inv_bar, use_container_width=True)
+        st.plotly_chart(fig_inv_bar, use_container_width=True, config=plotly_config)
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -548,25 +573,25 @@ try:
         fig_inv_line = px.line(
             df_carteira_investimentos,
             x="Mês", y="Valor", color="Categoria",
-            title="📈 Curva de Crescimento por Ativo (Rendimentos + Aportes Mês a Mês)",
+            title="📈 Curva de Crescimento por Ativo",
             markers=True,
-            labels={"Valor": "R$", "Categoria": "Ativo da Carteira"},
+            labels={"Valor": "R$", "Categoria": ""},
             color_discrete_sequence=px.colors.qualitative.Bold
         )
         fig_inv_line.update_layout(
             plotly_theme["layout"], 
-            height=550,
+            height=500,
             legend=dict(
-                orientation="v",
-                yanchor="top",
-                y=1.0,
-                xanchor="left",
-                x=1.02
+                orientation="h",
+                yanchor="bottom",
+                y=-0.5,
+                xanchor="center",
+                x=0.5
             ),
-            margin=dict(l=20, r=180, t=50, b=40)
+            margin=dict(l=50, r=20, t=40, b=120)
         )
         fig_inv_line.update_yaxes(tickprefix="R$ ", tickformat="~s")
-        st.plotly_chart(fig_inv_line, use_container_width=True)
+        st.plotly_chart(fig_inv_line, use_container_width=True, config=plotly_config)
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
@@ -574,8 +599,8 @@ try:
         # 9. VARIAÇÃO DE RENDIMENTO MÊS A MÊS
         # -------------------------------------------------------------
         st.markdown("<a id='lucro-prejuizo'></a>", unsafe_allow_html=True)
-        st.markdown("### 💵 Lucro / Prejuízo dos Investimentos (Variação Mês a Mês)")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Comparativo da evolução do patrimônio investido entre meses consecutivos</p>", unsafe_allow_html=True)
+        st.markdown("### 💵 Lucro / Prejuízo dos Investimentos")
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Comparativo da evolução patrimonial entre meses consecutivos</p>", unsafe_allow_html=True)
 
         df_carteira_mensal = df_carteira_investimentos.groupby("Mês", observed=False)["Valor"].sum().reset_index()
         df_carteira_mensal = df_carteira_mensal.sort_values("Mês")
@@ -596,9 +621,9 @@ try:
                 status = "🟢 Lucro" if diff_abs >= 0 else "🔴 Prejuízo"
                 
                 registros_variacao.append({
-                    "Período Comparado": f"{str(m_ant).upper()} ➔ {str(m_atual).upper()}",
-                    "Saldo Mês Anterior": f"R$ {val_ant:,.2f}",
-                    "Saldo Mês Atual": f"R$ {val_atual:,.2f}",
+                    "Período": f"{str(m_ant).upper()} ➔ {str(m_atual).upper()}",
+                    "Mês Anterior": f"R$ {val_ant:,.2f}",
+                    "Mês Atual": f"R$ {val_atual:,.2f}",
                     "Resultado (R$)": f"R$ {diff_abs:+,.2f}",
                     "Rendimento (%)": f"{diff_pct:+.2f}%",
                     "Status": status
@@ -612,7 +637,7 @@ try:
                 hide_index=True
             )
         else:
-            st.info("Selecione pelo menos 2 meses no filtro para visualizar a comparação de variação patrimonial.")
+            st.info("Selecione pelo menos 2 meses no filtro para comparar a variação.")
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
@@ -620,8 +645,8 @@ try:
         # 10. RAIO-X INDIVIDUAL
         # -------------------------------------------------------------
         st.markdown("<a id='raio-x'></a>", unsafe_allow_html=True)
-        st.markdown("### 🔍 Raio-X & Análise Individual de cada Ativo")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione um ativo para analisar seu histórico de rendimento e evolução mensal isolada</p>", unsafe_allow_html=True)
+        st.markdown("### 🔍 Raio-X & Análise Individual")
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione um ativo para analisar seu histórico de rendimento</p>", unsafe_allow_html=True)
 
         ativos_encerrados = [
             "C6 - CDB C6 Prefixado 1 ano (15,7% a.a.) Venc em 03/06/26",
@@ -634,9 +659,7 @@ try:
         lista_ativos_raiox = sorted([a for a in todos_ativos if a not in ativos_encerrados])
 
         if lista_ativos_raiox:
-            col_sel, _ = st.columns([2, 1])
-            with col_sel:
-                ativo_escolhido = st.selectbox("Escolha um investimento para detalhar:", lista_ativos_raiox)
+            ativo_escolhido = st.selectbox("Escolha um investimento para detalhar:", lista_ativos_raiox)
 
             df_ativo_filtro = df_carteira_investimentos[df_carteira_investimentos["Categoria"] == ativo_escolhido].sort_values("Mês")
             df_ativo_validos = df_ativo_filtro[df_ativo_filtro["Valor"] > 0].reset_index(drop=True)
@@ -655,7 +678,7 @@ try:
             st.markdown("<br>", unsafe_allow_html=True)
 
             if len(df_ativo_validos) > 0:
-                st.markdown(f"##### 📑 Histórico de Crescimento Mês a Mês: `{ativo_escolhido}`")
+                st.markdown(f"##### 📑 Histórico de Crescimento: `{ativo_escolhido}`")
                 
                 registros_ativo_m = []
                 for idx in range(len(df_ativo_validos)):
@@ -663,8 +686,6 @@ try:
                     val_curr = df_ativo_validos.loc[idx, "Valor"]
                     
                     if idx == 0:
-                        var_m_abs = 0.0
-                        var_m_pct = 0.0
                         txt_var_abs = "-"
                         txt_var_pct = "-"
                     else:
@@ -677,8 +698,8 @@ try:
                     registros_ativo_m.append({
                         "Mês": m_curr,
                         "Saldo em Carteira": f"R$ {val_curr:,.2f}",
-                        "Variação Mês (R$)": txt_var_abs,
-                        "Variação Mês (%)": txt_var_pct
+                        "Variação (R$)": txt_var_abs,
+                        "Variação (%)": txt_var_pct
                     })
 
                 df_ativo_tab = pd.DataFrame(registros_ativo_m)
@@ -688,14 +709,18 @@ try:
             fig_ativo_single = px.area(
                 df_ativo_filtro,
                 x="Mês", y="Valor",
-                title=f"📈 Gráfico de Evolução: {ativo_escolhido}",
+                title=f"📈 Evolução: {ativo_escolhido}",
                 markers=True,
                 color_discrete_sequence=["#8B5CF6"],
-                labels={"Valor": "R$ (Saldo em Carteira)", "Mês": ""}
+                labels={"Valor": "R$", "Mês": ""}
             )
-            fig_ativo_single.update_layout(plotly_theme["layout"], height=380)
+            fig_ativo_single.update_layout(
+                plotly_theme["layout"], 
+                height=350,
+                margin=dict(l=50, r=20, t=30, b=20)
+            )
             fig_ativo_single.update_yaxes(tickprefix="R$ ", tickformat="~s")
-            st.plotly_chart(fig_ativo_single, use_container_width=True)
+            st.plotly_chart(fig_ativo_single, use_container_width=True, config=plotly_config)
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
@@ -703,8 +728,8 @@ try:
         # 11. DIVERSIFICAÇÃO & ALOCAÇÃO POR CLASSE DE ATIVO
         # -------------------------------------------------------------
         st.markdown("<a id='diversificacao'></a>", unsafe_allow_html=True)
-        st.markdown("### 🍩 Diversificação Patrimonial por Classe de Ativo")
-        st.markdown(f"<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise de risco e distribuição percentual da carteira em <b>{ultimo_mes.upper()} / {ano_selecionado}</b></p>", unsafe_allow_html=True)
+        st.markdown("### 🍩 Diversificação por Classe de Ativo")
+        st.markdown(f"<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Alocação em <b>{ultimo_mes.upper()} / {ano_selecionado}</b></p>", unsafe_allow_html=True)
 
         def classificar_ativo(nome):
             nome_upper = str(nome).upper()
@@ -734,7 +759,7 @@ try:
                 names="Classe",
                 values="Valor",
                 hole=0.55,
-                title=f"Distribuição da Carteira ({ultimo_mes.upper()})",
+                title=f"Distribuição ({ultimo_mes.upper()})",
                 color_discrete_sequence=px.colors.qualitative.Set2
             )
             fig_donut.update_traces(
@@ -743,11 +768,11 @@ try:
             )
             fig_donut.update_layout(
                 plotly_theme["layout"],
-                height=400,
+                height=380,
                 showlegend=False,
-                margin=dict(l=20, r=20, t=50, b=20)
+                margin=dict(l=20, r=20, t=40, b=20)
             )
-            st.plotly_chart(fig_donut, use_container_width=True)
+            st.plotly_chart(fig_donut, use_container_width=True, config=plotly_config)
 
         with col_tabela_classes:
             st.markdown("##### 📑 Detalhamento da Alocação")
