@@ -535,36 +535,38 @@ try:
         st.markdown("### 📊 Posição & Evolução Patrimonial dos Investimentos")
         st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento individual e evolução de cada ativo da carteira</p>", unsafe_allow_html=True)
         
+        # 🟢 CORREÇÃO: Filtra apenas ativos individuais (sem o Total)
         df_inv_ultimo = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes].copy()
         df_inv_ultimo = df_inv_ultimo[df_inv_ultimo["Valor"] > 0].sort_values(by="Valor", ascending=True)
-        
-        df_total = pd.DataFrame([{
-            "linha_excel": 999,
-            "Categoria": "Total Investimentos",
-            "Mês": ultimo_mes,
-            "Valor_Raw": str(patrimonio_total_ultimo_mes),
-            "Valor": patrimonio_total_ultimo_mes
-        }])
 
-        df_inv_bar_data = pd.concat([df_total, df_inv_ultimo], ignore_index=True)
-        
+        # 🟢 Exibe o Total de Investimentos num Card KPI separado para não distorcer o gráfico
+        st.markdown(f"""
+        <div class="kpi-card" style="margin-bottom: 15px; border-color: #10B981;">
+            <div class="kpi-title">Total Investimentos em {ultimo_mes.upper()}</div>
+            <div class="kpi-value val-green">R$ {patrimonio_total_ultimo_mes:,.2f}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Rótulos formatados com moeda
+        df_inv_ultimo["Texto_Valor"] = df_inv_ultimo["Valor"].apply(lambda v: f"R$ {v:,.2f}")
+
         fig_inv_bar = px.bar(
-            df_inv_bar_data,
+            df_inv_ultimo,
             x="Valor", y="Categoria", orientation="h",
             title=f"🏛️ Saldo de Ativos em {ultimo_mes.upper()}",
             labels={"Valor": "R$", "Categoria": ""},
             color="Valor", 
             color_continuous_scale="Greens",
-            text_auto='.2f'
+            text="Texto_Valor"
         )
         fig_inv_bar.update_layout(
             plotly_theme["layout"], 
             coloraxis_showscale=False, 
-            height=480,
-            margin=dict(l=150, r=30, t=40, b=20)
+            height=420,
+            margin=dict(l=160, r=40, t=40, b=30)
         )
         fig_inv_bar.update_xaxes(tickprefix="R$ ", tickformat="~s")
-        fig_inv_bar.update_traces(textposition="outside")
+        fig_inv_bar.update_traces(textposition="outside", textfont=dict(size=11, color="#10B981"))
         st.plotly_chart(fig_inv_bar, use_container_width=True, config=plotly_config)
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -578,7 +580,7 @@ try:
             labels={"Valor": "R$", "Categoria": ""},
             color_discrete_sequence=px.colors.qualitative.Bold
         )
-        # 🟢 AJUSTE DE LEGENDA PARA MOBILE: Posição horizontal bem abaixo do eixo X
+        # 🟢 Legenda horizontal bem ajustada abaixo do eixo X
         fig_inv_line.update_layout(
             plotly_theme["layout"], 
             height=580,
