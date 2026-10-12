@@ -172,7 +172,6 @@ except Exception:
 # -------------------------------------------------------------
 st.sidebar.markdown("### ⚙️ Painel de Controle")
 
-# 🟢 Ordem cronológica ajustada: 2025, 2026, 2027 (com 2026 como padrão selecionado)
 ano_selecionado = st.sidebar.selectbox(
     "Ano / Aba da Planilha", 
     ["2025", "2026", "2027"], 
@@ -415,17 +414,18 @@ try:
             labels={"Valor": "R$", "Categoria": "Ativo da Carteira"},
             color_discrete_sequence=px.colors.qualitative.Bold
         )
+        # 🟢 AJUSTE DA LEGENDA: Orientação vertical (um ativo abaixo do outro)
         fig_inv_line.update_layout(
             plotly_theme["layout"], 
-            height=480,
+            height=550,
             legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=-0.35,
-                xanchor="center",
-                x=0.5
+                orientation="v",
+                yanchor="top",
+                y=1.0,
+                xanchor="left",
+                x=1.02
             ),
-            margin=dict(l=20, r=20, t=50, b=100)
+            margin=dict(l=20, r=180, t=50, b=40)
         )
         st.plotly_chart(fig_inv_line, use_container_width=True)
 
