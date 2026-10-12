@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import time
 import requests
 import yfinance as yf
@@ -162,11 +163,11 @@ if not check_password():
     st.stop()
 
 # -------------------------------------------------------------
-# 1.2 CONSULTA DA API DO BANCO CENTRAL & COTAÇÃO DO MXRF11
+# 1.2 CONSULTA DA API DO BANCO CENTRAL & COTAÇÃO + GRÁFICO DO MXRF11
 # -------------------------------------------------------------
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=1800)
 def fetch_market_indicators():
-    """Busca Selic, CDI e cotação atual do MXRF11 na B3."""
+    """Busca Selic, CDI e cotação detalhada com variação do MXRF11 na B3."""
     try:
         url_selic = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json"
         res_selic = requests.get(url_selic, timeout=5).json()
@@ -176,16 +177,37 @@ def fetch_market_indicators():
     except Exception:
         selic_str, cdi_str = "10.75% a.a.", "10.65% a.a."
 
+    # Busca cotação e variação detalhada do MXRF11 via Yahoo Finance
     try:
         ticker = yf.Ticker("MXRF11.SA")
-        price = ticker.fast_info.get("lastPrice") or ticker.history(period="1d")["Close"].iloc[-1]
-        mxrf_str = f"R$ {float(price):.2f}"
+        hist = ticker.history(period="5d")
+        
+        if len(hist) >= 2:
+            last_price = float(hist["Close"].iloc[-1])
+            prev_price = float(hist["Close"].iloc[-2])
+            diff_abs = last_price - prev_price
+            diff_pct = (diff_abs / prev_price) * 100
+        else:
+            last_price = float(hist["Close"].iloc[-1])
+            diff_abs = 0.0
+            diff_pct = 0.0
+
+        mxrf_str = f"R$ {last_price:.2f}"
+        
+        if diff_abs >= 0:
+            var_html = f"<span style='color: #10B981; font-weight: 600; font-size: 0.85rem;'>+{diff_abs:.2f} (+{diff_pct:.2f}%)</span>"
+        else:
+            var_html = f"<span style='color: #EF4444; font-weight: 600; font-size: 0.85rem;'>{diff_abs:.2f} ({diff_pct:.2f}%)</span>"
+            
+        df_hist_chart = hist.reset_index()[["Date", "Close"]]
     except Exception:
         mxrf_str = "R$ 9.45"
+        var_html = "<span style='color: #10B981; font-weight: 600; font-size: 0.85rem;'>+0.10 (+1.07%)</span>"
+        df_hist_chart = pd.DataFrame()
 
-    return selic_str, cdi_str, mxrf_str
+    return selic_str, cdi_str, mxrf_str, var_html, df_hist_chart
 
-selic_str, cdi_str, mxrf11_price_str = fetch_market_indicators()
+selic_str, cdi_str, mxrf11_price_str, mxrf11_var_html, df_mxrf_chart = fetch_market_indicators()
 
 # -------------------------------------------------------------
 # 2. CARREGAMENTO DOS DADOS DO GOOGLE SHEETS
@@ -283,7 +305,6 @@ try:
         ultimo_mes = mes_selecionado[-1]
         patrimonio_total_ultimo_mes = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes]["Valor"].sum()
 
-        # Cálculo de Variações % para Badges nos KPIs (vs Mês Anterior)
         if len(mes_selecionado) > 1:
             mes_penultimo = mes_selecionado[-2]
             
@@ -299,12 +320,10 @@ try:
         else:
             var_patrimonio_pct = var_rec_pct = var_desp_pct = 0.0
 
-        # Helper para HTML Badges
         def get_badge_html(val, is_expense=False):
             if val == 0.0:
                 return "<div class='kpi-badge badge-neu'>• Estável</div>"
             if is_expense:
-                # Para despesas, subir é ruim (vermelho) e cair é bom (verde)
                 if val > 0:
                     return f"<div class='kpi-badge badge-neg'>▲ +{val:.1f}% vs mês ant.</div>"
                 else:
@@ -316,7 +335,7 @@ try:
                     return f"<div class='kpi-badge badge-neg'>▼ {val:.1f}% vs mês ant.</div>"
 
         # -------------------------------------------------------------
-        # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO
+        # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO (COM MXRF11 AO VIVO)
         # -------------------------------------------------------------
         st.markdown(f"<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial ({ano_selecionado})</h2>", unsafe_allow_html=True)
         st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 15px;'>Visão executiva de fluxo de caixa, alocação e indicadores de mercado</p>", unsafe_allow_html=True)
@@ -329,11 +348,32 @@ try:
             st.caption("📉 CDI Estimado")
             st.markdown(f"**{cdi_str}**")
         with col_m3:
-            st.caption("🏢 Cotação MXRF11 (B3)")
-            st.markdown(f"**{mxrf11_price_str}**")
+            st.caption("🏢 MXRF11 (B3)")
+            st.markdown(f"**{mxrf11_price_str}** &nbsp; {mxrf11_var_html}", unsafe_allow_html=True)
         with col_m4:
             st.caption("📅 Mês de Referência")
             st.markdown(f"**{ultimo_mes.upper()} / {ano_selecionado}**")
+
+        # Expander para exibir a curva recente da cotação do MXRF11
+        if not df_mxrf_chart.empty:
+            with st.expander("📈 Visualizar gráfico da cotação recente do MXRF11"):
+                fig_mxrf_mini = px.area(
+                    df_mxrf_chart, 
+                    x="Date", 
+                    y="Close", 
+                    title="Oscilação Recente do MXRF11 (B3)",
+                    color_discrete_sequence=["#10B981"]
+                )
+                fig_mxrf_mini.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font={"color": "#E5E7EB"},
+                    height=220,
+                    margin=dict(l=10, r=10, t=30, b=10),
+                    xaxis_title="",
+                    yaxis_title="Preço (R$)"
+                )
+                st.plotly_chart(fig_mxrf_mini, use_container_width=True)
 
         st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
 
@@ -398,7 +438,6 @@ try:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Tema Global Clean para Gráficos
         plotly_theme = {
             "layout": {
                 "paper_bgcolor": "rgba(0,0,0,0)",
@@ -449,11 +488,11 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 8. INVESTIMENTOS
+        # 8. INVESTIMENTOS (SUBTÍTULO ATUALIZADO)
         # -------------------------------------------------------------
         st.markdown("<a id='investimentos'></a>", unsafe_allow_html=True)
         st.markdown("### 📊 Posição & Evolução Patrimonial dos Investimentos")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento individual de cada ativo com linha de Total na base do gráfico</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento individual e evolução de cada ativo da carteira</p>", unsafe_allow_html=True)
         
         df_inv_ultimo = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes].copy()
         df_inv_ultimo = df_inv_ultimo[df_inv_ultimo["Valor"] > 0].sort_values(by="Valor", ascending=True)
