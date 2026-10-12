@@ -578,17 +578,19 @@ try:
             labels={"Valor": "R$", "Categoria": ""},
             color_discrete_sequence=px.colors.qualitative.Bold
         )
+        # 🟢 AJUSTE DE LEGENDA PARA MOBILE: Posição horizontal bem abaixo do eixo X
         fig_inv_line.update_layout(
             plotly_theme["layout"], 
-            height=500,
+            height=580,
             legend=dict(
                 orientation="h",
-                yanchor="bottom",
-                y=-0.5,
+                yanchor="top",
+                y=-0.25,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                font=dict(size=10)
             ),
-            margin=dict(l=50, r=20, t=40, b=120)
+            margin=dict(l=50, r=20, t=40, b=180)
         )
         fig_inv_line.update_yaxes(tickprefix="R$ ", tickformat="~s")
         st.plotly_chart(fig_inv_line, use_container_width=True, config=plotly_config)
