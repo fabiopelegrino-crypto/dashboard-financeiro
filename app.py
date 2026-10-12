@@ -6,7 +6,7 @@ import requests
 import yfinance as yf
 
 # -------------------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM (CSS)
+# 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM PREMIUM (CSS)
 # -------------------------------------------------------------
 st.set_page_config(
     page_title="Finances AI | Dashboard Financeiro", 
@@ -15,72 +15,85 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS e Proteção de Indexação (noindex, nofollow)
+# Estilização CSS Avançada (UI Design Premium & noindex)
 custom_css = """
 <meta name="robots" content="noindex, nofollow">
 <style>
     .stApp {
-        background-color: #0E1117;
+        background-color: #0B0E14;
         font-family: 'Inter', sans-serif;
     }
     .kpi-card {
-        background: linear-gradient(135deg, #1A1F2C 0%, #141824 100%);
-        border: 1px solid #2E3548;
+        background: linear-gradient(145deg, #161B26 0%, #0F131C 100%);
+        border: 1px solid #232D3F;
         border-radius: 16px;
-        padding: 20px 24px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-        margin-bottom: 15px;
+        padding: 22px 24px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
     }
     .kpi-card:hover {
         border-color: #3B82F6;
-        transform: translateY(-2px);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 30px -5px rgba(59, 130, 246, 0.2);
     }
     .kpi-title {
         color: #9CA3AF;
-        font-size: 0.875rem;
-        font-weight: 500;
+        font-size: 0.825rem;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
         margin-bottom: 8px;
     }
     .kpi-value {
-        font-size: 1.75rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
+        font-size: 1.85rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.2;
     }
-    .kpi-subtext {
-        font-size: 0.75rem;
-        color: #6B7280;
-        margin-top: 6px;
+    .kpi-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 20px;
+        font-size: 0.725rem;
+        font-weight: 600;
+        margin-top: 8px;
     }
+    .badge-pos { background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-neg { background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-neu { background: rgba(107, 114, 128, 0.15); color: #9CA3AF; border: 1px solid rgba(107, 114, 128, 0.3); }
+
     .val-green { color: #10B981; }
     .val-red { color: #EF4444; }
     .val-blue { color: #3B82F6; }
-    .val-purple { color: #8B5CF6; }
+    .val-purple { color: #A855F7; }
 
-    /* Estilo para Botões de Navegação Rápida (Navbar/Atalhos) */
+    /* Botões de Navegação Rápida (Navbar Estilizada) */
     .nav-link-btn {
         display: block;
         text-align: center;
-        background-color: #1F2937;
+        background: #161B26;
         color: #9CA3AF !important;
-        padding: 8px 12px;
-        border-radius: 8px;
+        padding: 10px 14px;
+        border-radius: 10px;
         text-decoration: none !important;
         font-size: 0.85rem;
-        font-weight: 500;
-        border: 1px solid #374151;
+        font-weight: 600;
+        border: 1px solid #232D3F;
         transition: all 0.2s ease;
     }
     .nav-link-btn:hover {
-        background-color: #374151;
+        background-color: #1F2937;
         color: #3B82F6 !important;
         border-color: #3B82F6;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
     }
 
     [data-testid="stSidebar"] {
-        background-color: #111827;
+        background-color: #0F131C;
         border-right: 1px solid #1F2937;
     }
     
@@ -270,6 +283,38 @@ try:
         ultimo_mes = mes_selecionado[-1]
         patrimonio_total_ultimo_mes = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes]["Valor"].sum()
 
+        # Cálculo de Variações % para Badges nos KPIs (vs Mês Anterior)
+        if len(mes_selecionado) > 1:
+            mes_penultimo = mes_selecionado[-2]
+            
+            patrimonio_penultimo = df_carteira_investimentos[df_carteira_investimentos["Mês"] == mes_penultimo]["Valor"].sum()
+            rec_ultimo = df_receitas[df_receitas["Mês"] == ultimo_mes]["Valor"].sum()
+            rec_penultimo = df_receitas[df_receitas["Mês"] == mes_penultimo]["Valor"].sum()
+            desp_ultimo = df_despesas[df_despesas["Mês"] == ultimo_mes]["Valor"].sum()
+            desp_penultimo = df_despesas[df_despesas["Mês"] == mes_penultimo]["Valor"].sum()
+
+            var_patrimonio_pct = ((patrimonio_total_ultimo_mes - patrimonio_penultimo) / patrimonio_penultimo * 100) if patrimonio_penultimo > 0 else 0.0
+            var_rec_pct = ((rec_ultimo - rec_penultimo) / rec_penultimo * 100) if rec_penultimo > 0 else 0.0
+            var_desp_pct = ((desp_ultimo - desp_penultimo) / desp_penultimo * 100) if desp_penultimo > 0 else 0.0
+        else:
+            var_patrimonio_pct = var_rec_pct = var_desp_pct = 0.0
+
+        # Helper para HTML Badges
+        def get_badge_html(val, is_expense=False):
+            if val == 0.0:
+                return "<div class='kpi-badge badge-neu'>• Estável</div>"
+            if is_expense:
+                # Para despesas, subir é ruim (vermelho) e cair é bom (verde)
+                if val > 0:
+                    return f"<div class='kpi-badge badge-neg'>▲ +{val:.1f}% vs mês ant.</div>"
+                else:
+                    return f"<div class='kpi-badge badge-pos'>▼ {val:.1f}% vs mês ant.</div>"
+            else:
+                if val > 0:
+                    return f"<div class='kpi-badge badge-pos'>▲ +{val:.1f}% vs mês ant.</div>"
+                else:
+                    return f"<div class='kpi-badge badge-neg'>▼ {val:.1f}% vs mês ant.</div>"
+
         # -------------------------------------------------------------
         # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO
         # -------------------------------------------------------------
@@ -311,7 +356,7 @@ try:
         st.markdown("<br>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 6. CARDS (KPIs)
+        # 6. CARDS (KPIs COM BADGES DE DESEMPENHO)
         # -------------------------------------------------------------
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         
@@ -320,7 +365,7 @@ try:
             <div class="kpi-card">
                 <div class="kpi-title">Receita Total</div>
                 <div class="kpi-value val-green">R$ {total_rec:,.2f}</div>
-                <div class="kpi-subtext">Salário & Outras Entradas</div>
+                {get_badge_html(var_rec_pct)}
             </div>
             """, unsafe_allow_html=True)
 
@@ -329,7 +374,7 @@ try:
             <div class="kpi-card">
                 <div class="kpi-title">Despesas Operacionais</div>
                 <div class="kpi-value val-red">R$ {total_desp:,.2f}</div>
-                <div class="kpi-subtext">Contas fixas, cartões e consumo</div>
+                {get_badge_html(var_desp_pct, is_expense=True)}
             </div>
             """, unsafe_allow_html=True)
 
@@ -338,7 +383,7 @@ try:
             <div class="kpi-card">
                 <div class="kpi-title">Saldo Investido (Mês)</div>
                 <div class="kpi-value val-blue">R$ {total_investido_mes:,.2f}</div>
-                <div class="kpi-subtext">Aportes destinados a investimentos</div>
+                <div class="kpi-badge badge-neu">Aportes do Período</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -347,19 +392,20 @@ try:
             <div class="kpi-card">
                 <div class="kpi-title">Carteira Total ({ultimo_mes.upper()})</div>
                 <div class="kpi-value val-purple">R$ {patrimonio_total_ultimo_mes:,.2f}</div>
-                <div class="kpi-subtext">Patrimônio acumulado nos ativos</div>
+                {get_badge_html(var_patrimonio_pct)}
             </div>
             """, unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
 
+        # Tema Global Clean para Gráficos
         plotly_theme = {
             "layout": {
                 "paper_bgcolor": "rgba(0,0,0,0)",
                 "plot_bgcolor": "rgba(0,0,0,0)",
                 "font": {"color": "#E5E7EB", "family": "Inter"},
-                "xaxis": {"gridcolor": "#1F2937"},
-                "yaxis": {"gridcolor": "#1F2937"}
+                "xaxis": {"gridcolor": "#1F2937", "zerolinecolor": "#1F2937"},
+                "yaxis": {"gridcolor": "#1F2937", "zerolinecolor": "#1F2937"}
             }
         }
 
@@ -382,6 +428,7 @@ try:
                 color_continuous_scale=["#3B82F6", "#EF4444"]
             )
             fig_cat.update_layout(plotly_theme["layout"], coloraxis_showscale=False, height=350)
+            fig_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
             st.plotly_chart(fig_cat, use_container_width=True)
             
         with col_g2:
@@ -396,6 +443,7 @@ try:
                 color_discrete_sequence=["#10B981"]
             )
             fig_evo.update_layout(plotly_theme["layout"], height=350)
+            fig_evo.update_yaxes(tickprefix="R$ ", tickformat="~s")
             st.plotly_chart(fig_evo, use_container_width=True)
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
@@ -435,6 +483,7 @@ try:
             height=450,
             margin=dict(l=20, r=20, t=50, b=20)
         )
+        fig_inv_bar.update_xaxes(tickprefix="R$ ", tickformat="~s")
         fig_inv_bar.update_traces(textposition="outside")
         st.plotly_chart(fig_inv_bar, use_container_width=True)
         
@@ -461,6 +510,7 @@ try:
             ),
             margin=dict(l=20, r=180, t=50, b=40)
         )
+        fig_inv_line.update_yaxes(tickprefix="R$ ", tickformat="~s")
         st.plotly_chart(fig_inv_line, use_container_width=True)
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
@@ -589,6 +639,7 @@ try:
                 labels={"Valor": "R$ (Saldo em Carteira)", "Mês": ""}
             )
             fig_ativo_single.update_layout(plotly_theme["layout"], height=380)
+            fig_ativo_single.update_yaxes(tickprefix="R$ ", tickformat="~s")
             st.plotly_chart(fig_ativo_single, use_container_width=True)
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
@@ -633,7 +684,7 @@ try:
             )
             fig_donut.update_traces(
                 textinfo="percent+label",
-                hovertemplate="<b>%{label}</b><br>Saldo: R$ %{value:,.2f}<br>Participação: %{percent}"
+                hovertemplate="<b>%{label}</b><br>Saldo: R$ %{value:,.2f}<br>Participação: %{percent:.2f}%"
             )
             fig_donut.update_layout(
                 plotly_theme["layout"],
