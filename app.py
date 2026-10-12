@@ -91,7 +91,7 @@ custom_css = """
 st.markdown(custom_css, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 1.1 MECANISMO DE LOGIN, BLOQUEIO DE FORÇA BRUTA & LOGOUT
+# 1.1 MECANISMO DE LOGIN COM BOTÃO "ACESSAR" & BLOQUEIO
 # -------------------------------------------------------------
 def check_password():
     """Retorna True se a senha estiver correta e exibe pop-up (toast) de erro se incorreta."""
@@ -111,25 +111,6 @@ def check_password():
         else:
             st.session_state["login_attempts"] = 0
 
-    def password_entered():
-        try:
-            target_password = st.secrets["PASSWORD"]
-        except Exception:
-            target_password = "123456"
-
-        if st.session_state["password_input"] == target_password:
-            st.session_state["password_correct"] = True
-            st.session_state["login_attempts"] = 0
-            del st.session_state["password_input"]
-        else:
-            st.session_state["password_correct"] = False
-            st.session_state["login_attempts"] += 1
-            if st.session_state["login_attempts"] >= MAX_TENTATIVAS:
-                st.session_state["lockout_time"] = time.time()
-            else:
-                tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
-                st.toast(f"⚠️ Senha incorreta! Tentativas restantes: {tentativas_restantes}", icon="🚨")
-
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
 
@@ -137,16 +118,30 @@ def check_password():
         st.markdown("<h2 style='text-align: center; color: #3B82F6;'>🔐 Acesso Restrito ao Painel</h2>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.text_input(
-                "Digite sua senha de acesso:", 
-                type="password", 
-                on_change=password_entered, 
-                key="password_input"
-            )
-            if "password_correct" in st.session_state and not st.session_state["password_correct"] and "password_input" not in st.session_state:
-                tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
-                if tentativas_restantes > 0:
-                    st.error(f"😕 Senha incorreta. Tentativas restantes: {tentativas_restantes}")
+            with st.form("login_form"):
+                password_input = st.text_input("Digite sua senha de acesso:", type="password")
+                submit_button = st.form_submit_button("🔑 Acessar", use_container_width=True)
+
+                if submit_button:
+                    try:
+                        target_password = st.secrets["PASSWORD"]
+                    except Exception:
+                        target_password = "123456"
+
+                    if password_input == target_password:
+                        st.session_state["password_correct"] = True
+                        st.session_state["login_attempts"] = 0
+                        st.rerun()
+                    else:
+                        st.session_state["password_correct"] = False
+                        st.session_state["login_attempts"] += 1
+                        if st.session_state["login_attempts"] >= MAX_TENTATIVAS:
+                            st.session_state["lockout_time"] = time.time()
+                            st.rerun()
+                        else:
+                            tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
+                            st.toast(f"⚠️ Senha incorreta! Tentativas restantes: {tentativas_restantes}", icon="🚨")
+                            st.error(f"😕 Senha incorreta. Tentativas restantes: {tentativas_restantes}")
         return False
     return True
 
@@ -298,7 +293,7 @@ try:
         st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 🚀 NOVO RECURSO: MENU DE NAVEGAÇÃO RÁPIDA (QUICK LINKS)
+        # 🚀 MENU DE NAVEGAÇÃO RÁPIDA (QUICK LINKS)
         # -------------------------------------------------------------
         st.markdown("##### 🧭 Navegação Rápida")
         nav_col1, nav_col2, nav_col3, nav_col4, nav_col5 = st.columns(5)
