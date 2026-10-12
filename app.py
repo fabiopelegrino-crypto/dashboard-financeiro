@@ -136,10 +136,9 @@ if not check_password():
 # -------------------------------------------------------------
 # 1.2 CONSULTA DA API DO BANCO CENTRAL & COTAÇÃO DO MXRF11
 # -------------------------------------------------------------
-@st.cache_data(ttl=3600)  # Cache de 1 hora
+@st.cache_data(ttl=3600)
 def fetch_market_indicators():
     """Busca Selic, CDI e cotação atual do MXRF11 na B3."""
-    # 1. Busca Selic via API do Banco Central
     try:
         url_selic = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json"
         res_selic = requests.get(url_selic, timeout=5).json()
@@ -149,7 +148,6 @@ def fetch_market_indicators():
     except Exception:
         selic_str, cdi_str = "10.75% a.a.", "10.65% a.a."
 
-    # 2. Busca cotação do MXRF11 via Yahoo Finance
     try:
         ticker = yf.Ticker("MXRF11.SA")
         price = ticker.fast_info.get("lastPrice") or ticker.history(period="1d")["Close"].iloc[-1]
@@ -478,10 +476,10 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 10. RAIO-X INDIVIDUAL
+        # 10. RAIO-X INDIVIDUAL (COM EVOLUÇÃO MÊS A MÊS DETALHADA)
         # -------------------------------------------------------------
         st.markdown("### 🔍 Raio-X & Análise Individual de cada Ativo")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione um ativo para analisar seu histórico de rendimento isolado</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione um ativo para analisar seu histórico de rendimento e evolução mensal isolada</p>", unsafe_allow_html=True)
 
         ativos_encerrados = [
             "C6 - CDB C6 Prefixado 1 ano (15,7% a.a.) Venc em 03/06/26",
@@ -499,7 +497,7 @@ try:
                 ativo_escolhido = st.selectbox("Escolha um investimento para detalhar:", lista_ativos_raiox)
 
             df_ativo_filtro = df_carteira_investimentos[df_carteira_investimentos["Categoria"] == ativo_escolhido].sort_values("Mês")
-            df_ativo_validos = df_ativo_filtro[df_ativo_filtro["Valor"] > 0]
+            df_ativo_validos = df_ativo_filtro[df_ativo_filtro["Valor"] > 0].reset_index(drop=True)
             
             val_inicial = df_ativo_validos["Valor"].iloc[0] if not df_ativo_validos.empty else 0.0
             val_final = df_ativo_validos["Valor"].iloc[-1] if not df_ativo_validos.empty else 0.0
@@ -514,10 +512,42 @@ try:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
+            # 🟢 Tabela Mês a Mês da Evolução do Ativo Selecionado
+            if len(df_ativo_validos) > 0:
+                st.markdown(f"##### 📑 Histórico de Crescimento Mês a Mês: `{ativo_escolhido}`")
+                
+                registros_ativo_m = []
+                for idx in range(len(df_ativo_validos)):
+                    m_curr = str(df_ativo_validos.loc[idx, "Mês"]).upper()
+                    val_curr = df_ativo_validos.loc[idx, "Valor"]
+                    
+                    if idx == 0:
+                        var_m_abs = 0.0
+                        var_m_pct = 0.0
+                        txt_var_abs = "-"
+                        txt_var_pct = "-"
+                    else:
+                        val_prev = df_ativo_validos.loc[idx - 1, "Valor"]
+                        var_m_abs = val_curr - val_prev
+                        var_m_pct = (var_m_abs / val_prev * 100) if val_prev > 0 else 0.0
+                        txt_var_abs = f"R$ {var_m_abs:+,.2f}"
+                        txt_var_pct = f"{var_m_pct:+.2f}%"
+
+                    registros_ativo_m.append({
+                        "Mês": m_curr,
+                        "Saldo em Carteira": f"R$ {val_curr:,.2f}",
+                        "Variação Mês (R$)": txt_var_abs,
+                        "Variação Mês (%)": txt_var_pct
+                    })
+
+                df_ativo_tab = pd.DataFrame(registros_ativo_m)
+                st.dataframe(df_ativo_tab, use_container_width=True, hide_index=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+
             fig_ativo_single = px.area(
                 df_ativo_filtro,
                 x="Mês", y="Valor",
-                title=f"📈 Evolução do Ativo: {ativo_escolhido}",
+                title=f"📈 Gráfico de Evolução: {ativo_escolhido}",
                 markers=True,
                 color_discrete_sequence=["#8B5CF6"],
                 labels={"Valor": "R$ (Saldo em Carteira)", "Mês": ""}
