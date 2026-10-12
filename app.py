@@ -92,15 +92,6 @@ custom_css = """
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
     }
 
-    /* Container de Filtros Rápidos */
-    .filter-box {
-        background-color: #161B26;
-        border: 1px solid #232D3F;
-        border-radius: 12px;
-        padding: 12px 18px;
-        margin-bottom: 20px;
-    }
-
     /* BOTÃO FLUTUANTE DE VOLTAR AO TOPO */
     .back-to-top-btn {
         position: fixed;
@@ -277,25 +268,7 @@ with col_m4:
 st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 🚀 MENU DE NAVEGAÇÃO RÁPIDA (QUICK LINKS)
-# -------------------------------------------------------------
-st.markdown("##### 🧭 Navegação Rápida")
-nav_col1, nav_col2, nav_col3, nav_col4, nav_col5 = st.columns(5)
-with nav_col1:
-    st.markdown("<a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Fluxo de Caixa</a>", unsafe_allow_html=True)
-with nav_col2:
-    st.markdown("<a class='nav-link-btn' href='#investimentos'>📊 Investimentos</a>", unsafe_allow_html=True)
-with nav_col3:
-    st.markdown("<a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro / Prejuízo</a>", unsafe_allow_html=True)
-with nav_col4:
-    st.markdown("<a class='nav-link-btn' href='#raio-x'>🔍 Raio-X Ativo</a>", unsafe_allow_html=True)
-with nav_col5:
-    st.markdown("<a class='nav-link-btn' href='#diversificacao'>🍩 Alocação</a>", unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# -------------------------------------------------------------
-# 🎛️ NOVO: PAINEL DE FILTROS DE PERÍODO (ANO & MESES) NO CORPO PRINCIPAL
+# 🎛️ PAINEL DE FILTROS DE PERÍODO (ANO & MESES) - AGORA ACIMA DA NAV
 # -------------------------------------------------------------
 st.markdown("##### 🔍 Filtros do Período de Análise")
 f_col1, f_col2, f_col3 = st.columns([1, 2.5, 0.8])
@@ -345,6 +318,26 @@ try:
     if st.sidebar.button("🔒 Encerrar Sessão (Sair)", use_container_width=True):
         st.session_state["password_correct"] = False
         st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------
+    # 🚀 MENU DE NAVEGAÇÃO RÁPIDA (QUICK LINKS) - POSICIONADO ABAIXO DOS FILTROS
+    # -------------------------------------------------------------
+    st.markdown("##### 🧭 Navegação Rápida")
+    nav_col1, nav_col2, nav_col3, nav_col4, nav_col5 = st.columns(5)
+    with nav_col1:
+        st.markdown("<a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Fluxo de Caixa</a>", unsafe_allow_html=True)
+    with nav_col2:
+        st.markdown("<a class='nav-link-btn' href='#investimentos'>📊 Investimentos</a>", unsafe_allow_html=True)
+    with nav_col3:
+        st.markdown("<a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro / Prejuízo</a>", unsafe_allow_html=True)
+    with nav_col4:
+        st.markdown("<a class='nav-link-btn' href='#raio-x'>🔍 Raio-X Ativo</a>", unsafe_allow_html=True)
+    with nav_col5:
+        st.markdown("<a class='nav-link-btn' href='#diversificacao'>🍩 Alocação</a>", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------
     # 4. PROCESSAMENTO DAS REGRAS FINANCEIRAS
@@ -417,8 +410,6 @@ try:
                     return f"<div class='kpi-badge badge-pos'>▲ +{val:.1f}% vs mês ant.</div>"
                 else:
                     return f"<div class='kpi-badge badge-neg'>▼ {val:.1f}% vs mês ant.</div>"
-
-        st.markdown("<br>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
         # 6. CARDS (KPIs COM BADGES DE DESEMPENHO)
