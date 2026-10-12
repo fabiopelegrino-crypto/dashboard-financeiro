@@ -72,8 +72,8 @@ st.markdown(custom_css, unsafe_allow_html=True)
 # 1.1 MECANISMO DE LOGIN, BLOQUEIO DE FORÇA BRUTA & LOGOUT
 # -------------------------------------------------------------
 def check_password():
-    """Retorna True se a senha estiver correta e gerencia tentativas."""
-    MAX_TENTATIVAS = 3  # Configurado para no máximo 3 tentativas incorretas
+    """Retorna True se a senha estiver correta e exibe pop-up (toast) de erro se incorreta."""
+    MAX_TENTATIVAS = 3  # Limite de 3 tentativas incorretas
 
     if "login_attempts" not in st.session_state:
         st.session_state["login_attempts"] = 0
@@ -105,6 +105,10 @@ def check_password():
             st.session_state["login_attempts"] += 1
             if st.session_state["login_attempts"] >= MAX_TENTATIVAS:
                 st.session_state["lockout_time"] = time.time()
+            else:
+                tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
+                # Pop-up de aviso no canto da tela ao errar a senha
+                st.toast(f"⚠️ Senha incorreta! Tentativas restantes: {tentativas_restantes}", icon="🚨")
 
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -121,7 +125,8 @@ def check_password():
             )
             if "password_correct" in st.session_state and not st.session_state["password_correct"] and "password_input" not in st.session_state:
                 tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
-                st.error(f"😕 Senha incorreta. Tentativas restantes: {tentativas_restantes}")
+                if tentativas_restantes > 0:
+                    st.error(f"😕 Senha incorreta. Tentativas restantes: {tentativas_restantes}")
         return False
     return True
 
