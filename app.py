@@ -59,6 +59,26 @@ custom_css = """
     .val-blue { color: #3B82F6; }
     .val-purple { color: #8B5CF6; }
 
+    /* Estilo para Botões de Navegação Rápida (Navbar/Atalhos) */
+    .nav-link-btn {
+        display: block;
+        text-align: center;
+        background-color: #1F2937;
+        color: #9CA3AF !important;
+        padding: 8px 12px;
+        border-radius: 8px;
+        text-decoration: none !important;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid #374151;
+        transition: all 0.2s ease;
+    }
+    .nav-link-btn:hover {
+        background-color: #374151;
+        color: #3B82F6 !important;
+        border-color: #3B82F6;
+    }
+
     [data-testid="stSidebar"] {
         background-color: #111827;
         border-right: 1px solid #1F2937;
@@ -275,7 +295,25 @@ try:
             st.caption("📅 Mês de Referência")
             st.markdown(f"**{ultimo_mes.upper()} / {ano_selecionado}**")
 
-        st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
+
+        # -------------------------------------------------------------
+        # 🚀 NOVO RECURSO: MENU DE NAVEGAÇÃO RÁPIDA (QUICK LINKS)
+        # -------------------------------------------------------------
+        st.markdown("##### 🧭 Navegação Rápida")
+        nav_col1, nav_col2, nav_col3, nav_col4, nav_col5 = st.columns(5)
+        with nav_col1:
+            st.markdown("<a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Fluxo de Caixa</a>", unsafe_allow_html=True)
+        with nav_col2:
+            st.markdown("<a class='nav-link-btn' href='#investimentos'>📊 Investimentos</a>", unsafe_allow_html=True)
+        with nav_col3:
+            st.markdown("<a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro / Prejuízo</a>", unsafe_allow_html=True)
+        with nav_col4:
+            st.markdown("<a class='nav-link-btn' href='#raio-x'>🔍 Raio-X Ativo</a>", unsafe_allow_html=True)
+        with nav_col5:
+            st.markdown("<a class='nav-link-btn' href='#diversificacao'>🍩 Alocação</a>", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
         # 6. CARDS (KPIs)
@@ -333,6 +371,7 @@ try:
         # -------------------------------------------------------------
         # 7. FLUXO DE CAIXA
         # -------------------------------------------------------------
+        st.markdown("<a id='fluxo-de-caixa'></a>", unsafe_allow_html=True)
         col_g1, col_g2 = st.columns([1.2, 1])
         
         with col_g1:
@@ -369,6 +408,7 @@ try:
         # -------------------------------------------------------------
         # 8. INVESTIMENTOS
         # -------------------------------------------------------------
+        st.markdown("<a id='investimentos'></a>", unsafe_allow_html=True)
         st.markdown("### 📊 Posição & Evolução Patrimonial dos Investimentos")
         st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento individual de cada ativo com linha de Total na base do gráfico</p>", unsafe_allow_html=True)
         
@@ -414,7 +454,6 @@ try:
             labels={"Valor": "R$", "Categoria": "Ativo da Carteira"},
             color_discrete_sequence=px.colors.qualitative.Bold
         )
-        # 🟢 AJUSTE DA LEGENDA: Orientação vertical (um ativo abaixo do outro)
         fig_inv_line.update_layout(
             plotly_theme["layout"], 
             height=550,
@@ -434,6 +473,7 @@ try:
         # -------------------------------------------------------------
         # 9. VARIAÇÃO DE RENDIMENTO MÊS A MÊS
         # -------------------------------------------------------------
+        st.markdown("<a id='lucro-prejuizo'></a>", unsafe_allow_html=True)
         st.markdown("### 💵 Lucro / Prejuízo dos Investimentos (Variação Mês a Mês)")
         st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Comparativo da evolução do patrimônio investido entre meses consecutivos</p>", unsafe_allow_html=True)
 
@@ -477,8 +517,9 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 10. RAIO-X INDIVIDUAL (COM EVOLUÇÃO MÊS A MÊS DETALHADA)
+        # 10. RAIO-X INDIVIDUAL
         # -------------------------------------------------------------
+        st.markdown("<a id='raio-x'></a>", unsafe_allow_html=True)
         st.markdown("### 🔍 Raio-X & Análise Individual de cada Ativo")
         st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione um ativo para analisar seu histórico de rendimento e evolução mensal isolada</p>", unsafe_allow_html=True)
 
@@ -560,6 +601,7 @@ try:
         # -------------------------------------------------------------
         # 11. DIVERSIFICAÇÃO & ALOCAÇÃO POR CLASSE DE ATIVO
         # -------------------------------------------------------------
+        st.markdown("<a id='diversificacao'></a>", unsafe_allow_html=True)
         st.markdown("### 🍩 Diversificação Patrimonial por Classe de Ativo")
         st.markdown(f"<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise de risco e distribuição percentual da carteira em <b>{ultimo_mes.upper()} / {ano_selecionado}</b></p>", unsafe_allow_html=True)
 
