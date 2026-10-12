@@ -73,17 +73,19 @@ st.markdown(custom_css, unsafe_allow_html=True)
 # -------------------------------------------------------------
 def check_password():
     """Retorna True se a senha estiver correta e gerencia tentativas."""
+    MAX_TENTATIVAS = 3  # Configurado para no máximo 3 tentativas incorretas
+
     if "login_attempts" not in st.session_state:
         st.session_state["login_attempts"] = 0
     if "lockout_time" not in st.session_state:
         st.session_state["lockout_time"] = 0
 
-    # Verifica se o sistema está em período de bloqueio (5 minutos após 5 erros)
-    if st.session_state["login_attempts"] >= 5:
+    # Verifica se o sistema está em período de bloqueio (5 minutos após 3 erros)
+    if st.session_state["login_attempts"] >= MAX_TENTATIVAS:
         remaining_time = int(300 - (time.time() - st.session_state["lockout_time"]))
         if remaining_time > 0:
             st.markdown("<h2 style='text-align: center; color: #EF4444;'>🚫 Acesso Temporariamente Bloqueado</h2>", unsafe_allow_html=True)
-            st.error(f"Muitas tentativas incorretas. Por razões de segurança, aguarde {remaining_time} segundos para tentar novamente.")
+            st.error(f"Muitas tentativas incorretas ({MAX_TENTATIVAS} erros). Por razões de segurança, aguarde {remaining_time} segundos para tentar novamente.")
             return False
         else:
             st.session_state["login_attempts"] = 0
@@ -101,7 +103,7 @@ def check_password():
         else:
             st.session_state["password_correct"] = False
             st.session_state["login_attempts"] += 1
-            if st.session_state["login_attempts"] >= 5:
+            if st.session_state["login_attempts"] >= MAX_TENTATIVAS:
                 st.session_state["lockout_time"] = time.time()
 
     if "password_correct" not in st.session_state:
@@ -118,7 +120,7 @@ def check_password():
                 key="password_input"
             )
             if "password_correct" in st.session_state and not st.session_state["password_correct"] and "password_input" not in st.session_state:
-                tentativas_restantes = 5 - st.session_state["login_attempts"]
+                tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
                 st.error(f"😕 Senha incorreta. Tentativas restantes: {tentativas_restantes}")
         return False
     return True
