@@ -155,7 +155,7 @@ def fetch_market_indicators():
         price = ticker.fast_info.get("lastPrice") or ticker.history(period="1d")["Close"].iloc[-1]
         mxrf_str = f"R$ {float(price):.2f}"
     except Exception:
-        mxrf_str = "R$ 9.45"  # Fallback caso a API da bolsa esteja indisponível
+        mxrf_str = "R$ 9.45"
 
     return selic_str, cdi_str, mxrf_str
 
@@ -263,7 +263,6 @@ try:
         st.markdown(f"<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial ({ano_selecionado})</h2>", unsafe_allow_html=True)
         st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 15px;'>Visão executiva de fluxo de caixa, alocação e indicadores de mercado</p>", unsafe_allow_html=True)
 
-        # 🟢 Barra com Selic, CDI, Cotação MXRF11 e Mês de Referência
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         with col_m1:
             st.caption("🏛️ Meta Selic (BCB)")
@@ -475,40 +474,6 @@ try:
             )
         else:
             st.info("Selecione pelo menos 2 meses no filtro para visualizar a comparação de variação patrimonial.")
-
-        st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # PAINEL DE PROVENTOS & RENDA PASSIVA (MXRF11 & FIIs)
-        # -------------------------------------------------------------
-        st.markdown("### 🏦 Relatório de Proventos & Renda Passiva")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Estimativa do fluxo mensal de dividendos gerados pelos seus ativos de Renda Variável e FIIs</p>", unsafe_allow_html=True)
-
-        df_fiis = df_carteira_investimentos[df_carteira_investimentos["Categoria"].str.upper().str.contains("MXRF11|FII|AÇÕES")]
-
-        if not df_fiis.empty:
-            saldo_fii_ultimo = df_fiis[df_fiis["Mês"] == ultimo_mes]["Valor"].sum()
-            est_renda_mensal = saldo_fii_ultimo * 0.0085
-            
-            # Tenta pegar o valor numérico atual do MXRF11 para o cálculo de cotas
-            try:
-                cot_num = float(mxrf11_price_str.replace("R$", "").strip())
-            except Exception:
-                cot_num = 9.45
-                
-            cotas_reinvestidas = int(est_renda_mensal / cot_num) if est_renda_mensal > 0 else 0
-
-            c_r1, c_r2, c_r3 = st.columns(3)
-            with c_r1:
-                st.metric("Patrimônio em FIIs / Ações", f"R$ {saldo_fii_ultimo:,.2f}")
-            with c_r2:
-                st.metric("Renda Passiva Mensal Estimada", f"R$ {est_renda_mensal:,.2f}", delta="~0.85% a.m.")
-            with c_r3:
-                st.metric("Efeito Bola de Neve (MXRF11)", f"+{cotas_reinvestidas} cotas/mês", help=f"Cotas compradas automaticamente com os proventos com base na cotação atual de {mxrf11_price_str}")
-
-            st.markdown("<br>", unsafe_allow_html=True)
-        else:
-            st.info("Nenhum ativo da classe de FIIs ou Renda Variável identificado nos meses selecionados.")
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
