@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import time
 import requests
+import yfinance as yf
 
 # -------------------------------------------------------------
 # 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM (CSS)
@@ -133,28 +134,32 @@ if not check_password():
     st.stop()
 
 # -------------------------------------------------------------
-# 1.2 CONSULTA DA API DO BANCO CENTRAL DO BRASIL (BENCHMARKS)
+# 1.2 CONSULTA DA API DO BANCO CENTRAL & COTAÇÃO DO MXRF11
 # -------------------------------------------------------------
-@st.cache_data(ttl=21600)  # Cache de 6 horas
-def fetch_bcb_indicators():
-    """Busca Selic, CDI e IPCA acumulado via API do Banco Central."""
+@st.cache_data(ttl=3600)  # Cache de 1 hora
+def fetch_market_indicators():
+    """Busca Selic, CDI e cotação atual do MXRF11 na B3."""
+    # 1. Busca Selic via API do Banco Central
     try:
-        # Selic meta anualizada (SGS 432)
         url_selic = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json"
         res_selic = requests.get(url_selic, timeout=5).json()
         selic_val = float(res_selic[0]["valor"])
-        cdi_val = selic_val - 0.10  # CDI aproxima-se de Selic - 0,10%
-
-        # IPCA acumulado em 12 meses (SGS 13522)
-        url_ipca = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/12?formato=json"
-        res_ipca = requests.get(url_ipca, timeout=5).json()
-        ipca_12m = sum([float(item["valor"]) for item in res_ipca])
-
-        return f"{selic_val:.2f}% a.a.", f"{cdi_val:.2f}% a.a.", f"{ipca_12m:.2f}%"
+        cdi_val = selic_val - 0.10
+        selic_str, cdi_str = f"{selic_val:.2f}% a.a.", f"{cdi_val:.2f}% a.a."
     except Exception:
-        return "10.75% a.a.", "10.65% a.a.", "4.50%"  # Fallback caso a API falhe
+        selic_str, cdi_str = "10.75% a.a.", "10.65% a.a."
 
-selic_str, cdi_str, ipca_str = fetch_bcb_indicators()
+    # 2. Busca cotação do MXRF11 via Yahoo Finance
+    try:
+        ticker = yf.Ticker("MXRF11.SA")
+        price = ticker.fast_info.get("lastPrice") or ticker.history(period="1d")["Close"].iloc[-1]
+        mxrf_str = f"R$ {float(price):.2f}"
+    except Exception:
+        mxrf_str = "R$ 9.45"  # Fallback caso a API da bolsa esteja indisponível
+
+    return selic_str, cdi_str, mxrf_str
+
+selic_str, cdi_str, mxrf11_price_str = fetch_market_indicators()
 
 # -------------------------------------------------------------
 # 2. CARREGAMENTO DOS DADOS DO GOOGLE SHEETS
@@ -169,7 +174,6 @@ except Exception:
 # -------------------------------------------------------------
 st.sidebar.markdown("### ⚙️ Painel de Controle")
 
-# 🟢 RECURSO 3: Seleção de Ano/Aba do Google Sheets
 ano_selecionado = st.sidebar.selectbox(
     "Ano / Aba da Planilha", 
     ["2026", "2027", "2025"], 
@@ -254,12 +258,12 @@ try:
         patrimonio_total_ultimo_mes = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes]["Valor"].sum()
 
         # -------------------------------------------------------------
-        # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO (BCB)
+        # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO
         # -------------------------------------------------------------
         st.markdown(f"<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial ({ano_selecionado})</h2>", unsafe_allow_html=True)
         st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 15px;'>Visão executiva de fluxo de caixa, alocação e indicadores de mercado</p>", unsafe_allow_html=True)
 
-        # 🟢 RECURSO 1: Barra de Indicadores do Banco Central
+        # 🟢 Barra com Selic, CDI, Cotação MXRF11 e Mês de Referência
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         with col_m1:
             st.caption("🏛️ Meta Selic (BCB)")
@@ -268,8 +272,8 @@ try:
             st.caption("📉 CDI Estimado")
             st.markdown(f"**{cdi_str}**")
         with col_m3:
-            st.caption("🏷️ Inflação IPCA (12M)")
-            st.markdown(f"**{ipca_str}**")
+            st.caption("🏢 Cotação MXRF11 (B3)")
+            st.markdown(f"**{mxrf11_price_str}**")
         with col_m4:
             st.caption("📅 Mês de Referência")
             st.markdown(f"**{ultimo_mes.upper()} / {ano_selecionado}**")
@@ -475,7 +479,7 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 🟢 RECURSO 2: PAINEL DE PROVENTOS & RENDA PASSIVA (MXRF11 & FIIs)
+        # PAINEL DE PROVENTOS & RENDA PASSIVA (MXRF11 & FIIs)
         # -------------------------------------------------------------
         st.markdown("### 🏦 Relatório de Proventos & Renda Passiva")
         st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Estimativa do fluxo mensal de dividendos gerados pelos seus ativos de Renda Variável e FIIs</p>", unsafe_allow_html=True)
@@ -484,9 +488,15 @@ try:
 
         if not df_fiis.empty:
             saldo_fii_ultimo = df_fiis[df_fiis["Mês"] == ultimo_mes]["Valor"].sum()
-            # Estimativa média de dividend yield mensal de FIIs de papel/títulos (~0.85% ao mês)
             est_renda_mensal = saldo_fii_ultimo * 0.0085
-            cotas_reinvestidas = int(est_renda_mensal / 10.0) if est_renda_mensal > 0 else 0
+            
+            # Tenta pegar o valor numérico atual do MXRF11 para o cálculo de cotas
+            try:
+                cot_num = float(mxrf11_price_str.replace("R$", "").strip())
+            except Exception:
+                cot_num = 9.45
+                
+            cotas_reinvestidas = int(est_renda_mensal / cot_num) if est_renda_mensal > 0 else 0
 
             c_r1, c_r2, c_r3 = st.columns(3)
             with c_r1:
@@ -494,7 +504,7 @@ try:
             with c_r2:
                 st.metric("Renda Passiva Mensal Estimada", f"R$ {est_renda_mensal:,.2f}", delta="~0.85% a.m.")
             with c_r3:
-                st.metric("Efeito Bola de Neve (MXRF11)", f"+{cotas_reinvestidas} cotas/mês", help="Novas cotas de R$ 10 adquiridas automaticamente com os próprios dividendos")
+                st.metric("Efeito Bola de Neve (MXRF11)", f"+{cotas_reinvestidas} cotas/mês", help=f"Cotas compradas automaticamente com os proventos com base na cotação atual de {mxrf11_price_str}")
 
             st.markdown("<br>", unsafe_allow_html=True)
         else:
