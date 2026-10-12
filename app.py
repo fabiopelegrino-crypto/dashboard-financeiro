@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import time
+import requests
 
 # -------------------------------------------------------------
 # 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM (CSS)
@@ -73,14 +74,13 @@ st.markdown(custom_css, unsafe_allow_html=True)
 # -------------------------------------------------------------
 def check_password():
     """Retorna True se a senha estiver correta e exibe pop-up (toast) de erro se incorreta."""
-    MAX_TENTATIVAS = 3  # Limite de 3 tentativas incorretas
+    MAX_TENTATIVAS = 3
 
     if "login_attempts" not in st.session_state:
         st.session_state["login_attempts"] = 0
     if "lockout_time" not in st.session_state:
         st.session_state["lockout_time"] = 0
 
-    # Verifica se o sistema está em período de bloqueio (5 minutos após 3 erros)
     if st.session_state["login_attempts"] >= MAX_TENTATIVAS:
         remaining_time = int(300 - (time.time() - st.session_state["lockout_time"]))
         if remaining_time > 0:
@@ -107,7 +107,6 @@ def check_password():
                 st.session_state["lockout_time"] = time.time()
             else:
                 tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
-                # Pop-up de aviso no canto da tela ao errar a senha
                 st.toast(f"⚠️ Senha incorreta! Tentativas restantes: {tentativas_restantes}", icon="🚨")
 
     if "password_correct" not in st.session_state:
@@ -134,34 +133,64 @@ if not check_password():
     st.stop()
 
 # -------------------------------------------------------------
-# 2. CARREGAMENTO E TRATAMENTO DOS DADOS (SECRETS SEGURO)
+# 1.2 CONSULTA DA API DO BANCO CENTRAL DO BRASIL (BENCHMARKS)
+# -------------------------------------------------------------
+@st.cache_data(ttl=21600)  # Cache de 6 horas
+def fetch_bcb_indicators():
+    """Busca Selic, CDI e IPCA acumulado via API do Banco Central."""
+    try:
+        # Selic meta anualizada (SGS 432)
+        url_selic = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json"
+        res_selic = requests.get(url_selic, timeout=5).json()
+        selic_val = float(res_selic[0]["valor"])
+        cdi_val = selic_val - 0.10  # CDI aproxima-se de Selic - 0,10%
+
+        # IPCA acumulado em 12 meses (SGS 13522)
+        url_ipca = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/12?formato=json"
+        res_ipca = requests.get(url_ipca, timeout=5).json()
+        ipca_12m = sum([float(item["valor"]) for item in res_ipca])
+
+        return f"{selic_val:.2f}% a.a.", f"{cdi_val:.2f}% a.a.", f"{ipca_12m:.2f}%"
+    except Exception:
+        return "10.75% a.a.", "10.65% a.a.", "4.50%"  # Fallback caso a API falhe
+
+selic_str, cdi_str, ipca_str = fetch_bcb_indicators()
+
+# -------------------------------------------------------------
+# 2. CARREGAMENTO DOS DADOS DO GOOGLE SHEETS
 # -------------------------------------------------------------
 try:
     SPREADSHEET_ID = st.secrets.get("SPREADSHEET_ID", "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4")
 except Exception:
     SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
 
-SHEET_NAME = "2026"
+# -------------------------------------------------------------
+# 3. SIDEBAR DE CONFIGURAÇÃO (ANO, MESES & LOGOUT)
+# -------------------------------------------------------------
+st.sidebar.markdown("### ⚙️ Painel de Controle")
+
+# 🟢 RECURSO 3: Seleção de Ano/Aba do Google Sheets
+ano_selecionado = st.sidebar.selectbox(
+    "Ano / Aba da Planilha", 
+    ["2026", "2027", "2025"], 
+    index=0
+)
+
+SHEET_NAME = ano_selecionado
 csv_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={SHEET_NAME}"
 
 @st.cache_data(ttl=60)
-def load_data():
-    return pd.read_csv(csv_url)
+def load_data(url):
+    return pd.read_csv(url)
 
 try:
-    df_raw = load_data()
+    df_raw = load_data(csv_url)
     
     df_raw.rename(columns={df_raw.columns[0]: "Categoria"}, inplace=True)
     df_raw["Categoria"] = df_raw["Categoria"].astype(str).str.strip()
     
     meses_ordem_cronologica = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
     meses = [c for c in meses_ordem_cronologica if c in df_raw.columns]
-    
-    # -------------------------------------------------------------
-    # 3. SIDEBAR DE CONFIGURAÇÃO & LOGOUT
-    # -------------------------------------------------------------
-    st.sidebar.markdown("### ⚙️ Painel de Controle")
-    st.sidebar.markdown("Selecione os meses para filtrar a visão do dashboard:")
     
     mes_selecionado = st.sidebar.multiselect(
         "Filtro por Mês", 
@@ -225,10 +254,27 @@ try:
         patrimonio_total_ultimo_mes = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes]["Valor"].sum()
 
         # -------------------------------------------------------------
-        # 5. HEADER DO DASHBOARD
+        # 5. HEADER DO DASHBOARD & BENCHMARKS MACRO (BCB)
         # -------------------------------------------------------------
-        st.markdown("<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 25px;'>Visão executiva de fluxo de caixa e alocação de ativos em 2026</p>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial ({ano_selecionado})</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #6B7280; font-size: 0.9rem; margin-bottom: 15px;'>Visão executiva de fluxo de caixa, alocação e indicadores de mercado</p>", unsafe_allow_html=True)
+
+        # 🟢 RECURSO 1: Barra de Indicadores do Banco Central
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            st.caption("🏛️ Meta Selic (BCB)")
+            st.markdown(f"**{selic_str}**")
+        with col_m2:
+            st.caption("📉 CDI Estimado")
+            st.markdown(f"**{cdi_str}**")
+        with col_m3:
+            st.caption("🏷️ Inflação IPCA (12M)")
+            st.markdown(f"**{ipca_str}**")
+        with col_m4:
+            st.caption("📅 Mês de Referência")
+            st.markdown(f"**{ultimo_mes.upper()} / {ano_selecionado}**")
+
+        st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
         # 6. CARDS (KPIs)
@@ -429,6 +475,34 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
+        # 🟢 RECURSO 2: PAINEL DE PROVENTOS & RENDA PASSIVA (MXRF11 & FIIs)
+        # -------------------------------------------------------------
+        st.markdown("### 🏦 Relatório de Proventos & Renda Passiva")
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Estimativa do fluxo mensal de dividendos gerados pelos seus ativos de Renda Variável e FIIs</p>", unsafe_allow_html=True)
+
+        df_fiis = df_carteira_investimentos[df_carteira_investimentos["Categoria"].str.upper().str.contains("MXRF11|FII|AÇÕES")]
+
+        if not df_fiis.empty:
+            saldo_fii_ultimo = df_fiis[df_fiis["Mês"] == ultimo_mes]["Valor"].sum()
+            # Estimativa média de dividend yield mensal de FIIs de papel/títulos (~0.85% ao mês)
+            est_renda_mensal = saldo_fii_ultimo * 0.0085
+            cotas_reinvestidas = int(est_renda_mensal / 10.0) if est_renda_mensal > 0 else 0
+
+            c_r1, c_r2, c_r3 = st.columns(3)
+            with c_r1:
+                st.metric("Patrimônio em FIIs / Ações", f"R$ {saldo_fii_ultimo:,.2f}")
+            with c_r2:
+                st.metric("Renda Passiva Mensal Estimada", f"R$ {est_renda_mensal:,.2f}", delta="~0.85% a.m.")
+            with c_r3:
+                st.metric("Efeito Bola de Neve (MXRF11)", f"+{cotas_reinvestidas} cotas/mês", help="Novas cotas de R$ 10 adquiridas automaticamente com os próprios dividendos")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+        else:
+            st.info("Nenhum ativo da classe de FIIs ou Renda Variável identificado nos meses selecionados.")
+
+        st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
+
+        # -------------------------------------------------------------
         # 10. RAIO-X INDIVIDUAL
         # -------------------------------------------------------------
         st.markdown("### 🔍 Raio-X & Análise Individual de cada Ativo")
@@ -482,7 +556,7 @@ try:
         # 11. DIVERSIFICAÇÃO & ALOCAÇÃO POR CLASSE DE ATIVO
         # -------------------------------------------------------------
         st.markdown("### 🍩 Diversificação Patrimonial por Classe de Ativo")
-        st.markdown(f"<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise de risco e distribuição percentual da carteira em <b>{ultimo_mes.upper()}</b></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise de risco e distribuição percentual da carteira em <b>{ultimo_mes.upper()} / {ano_selecionado}</b></p>", unsafe_allow_html=True)
 
         def classificar_ativo(nome):
             nome_upper = str(nome).upper()
@@ -540,4 +614,4 @@ try:
             )
 
 except Exception as e:
-    st.error("Não foi possível carregar as informações no momento. Tente novamente mais tarde.")
+    st.error(f"Aba '{ano_selecionado}' não encontrada ou sem dados no Google Sheets.")
