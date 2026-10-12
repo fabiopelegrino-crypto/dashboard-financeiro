@@ -172,10 +172,11 @@ except Exception:
 # -------------------------------------------------------------
 st.sidebar.markdown("### ⚙️ Painel de Controle")
 
+# 🟢 Ordem cronológica ajustada: 2025, 2026, 2027 (com 2026 como padrão selecionado)
 ano_selecionado = st.sidebar.selectbox(
     "Ano / Aba da Planilha", 
-    ["2026", "2027", "2025"], 
-    index=0
+    ["2025", "2026", "2027"], 
+    index=1
 )
 
 SHEET_NAME = ano_selecionado
@@ -512,7 +513,6 @@ try:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # 🟢 Tabela Mês a Mês da Evolução do Ativo Selecionado
             if len(df_ativo_validos) > 0:
                 st.markdown(f"##### 📑 Histórico de Crescimento Mês a Mês: `{ativo_escolhido}`")
                 
