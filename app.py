@@ -95,11 +95,11 @@ custom_css = """
         border-color: #3B82F6;
     }
 
-    /* BOTÃO FLUTUANTE DE VOLTAR AO TOPO */
+    /* 🚀 BOTÃO FLUTUANTE DE VOLTAR AO TOPO (CANTO INFERIOR ESQUERDO) */
     .back-to-top-btn {
         position: fixed;
         bottom: 20px;
-        right: 15px;
+        left: 15px;
         z-index: 9999;
         background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
         color: #3B82F6 !important;
@@ -535,11 +535,9 @@ try:
         st.markdown("### 📊 Posição & Evolução Patrimonial dos Investimentos")
         st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento individual e evolução de cada ativo da carteira</p>", unsafe_allow_html=True)
         
-        # 🟢 CORREÇÃO: Filtra apenas ativos individuais (sem o Total)
         df_inv_ultimo = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes].copy()
         df_inv_ultimo = df_inv_ultimo[df_inv_ultimo["Valor"] > 0].sort_values(by="Valor", ascending=True)
 
-        # 🟢 Exibe o Total de Investimentos num Card KPI separado para não distorcer o gráfico
         st.markdown(f"""
         <div class="kpi-card" style="margin-bottom: 15px; border-color: #10B981;">
             <div class="kpi-title">Total Investimentos em {ultimo_mes.upper()}</div>
@@ -547,7 +545,6 @@ try:
         </div>
         """, unsafe_allow_html=True)
 
-        # Rótulos formatados com moeda
         df_inv_ultimo["Texto_Valor"] = df_inv_ultimo["Valor"].apply(lambda v: f"R$ {v:,.2f}")
 
         fig_inv_bar = px.bar(
@@ -580,7 +577,6 @@ try:
             labels={"Valor": "R$", "Categoria": ""},
             color_discrete_sequence=px.colors.qualitative.Bold
         )
-        # 🟢 Legenda horizontal bem ajustada abaixo do eixo X
         fig_inv_line.update_layout(
             plotly_theme["layout"], 
             height=580,
