@@ -151,6 +151,22 @@ plotly_config = {
     'responsive': True
 }
 
+# Função auxiliar para quebrar textos longos em 2 linhas para os eixos do Plotly
+def quebrar_linha_nome(texto, max_chars=18):
+    texto_str = str(texto).strip()
+    if len(texto_str) <= max_chars:
+        return texto_str
+    
+    # Se houver hífen, quebra no primeiro hífen
+    if " - " in texto_str:
+        partes = texto_str.split(" - ", 1)
+        return f"{partes[0]} -<br>{partes[1]}"
+    
+    # Caso contrário, quebra no espaço mais próximo do meio
+    palavras = texto_str.split(" ")
+    meio = len(palavras) // 2
+    return "<br>".join([" ".join(palavras[:meio]), " ".join(palavras[meio:])])
+
 # -------------------------------------------------------------
 # 1.1 MECANISMO DE LOGIN COM BOTÃO "ACESSAR" & BLOQUEIO
 # -------------------------------------------------------------
@@ -491,10 +507,13 @@ try:
             df_desp_cat = df_despesas.groupby("Categoria")["Valor"].sum().reset_index()
             df_desp_cat = df_desp_cat[df_desp_cat["Valor"] > 0].sort_values(by="Valor", ascending=True)
             
+            # Quebra o nome das despesas em 2 linhas se for muito longo
+            df_desp_cat["Categoria_Label"] = df_desp_cat["Categoria"].apply(quebrar_linha_nome)
+
             fig_cat = px.bar(
                 df_desp_cat,
-                x="Valor", y="Categoria", orientation="h",
-                labels={"Valor": "R$", "Categoria": ""},
+                x="Valor", y="Categoria_Label", orientation="h",
+                labels={"Valor": "R$", "Categoria_Label": ""},
                 color="Valor", 
                 color_continuous_scale=["#3B82F6", "#EF4444"]
             )
@@ -502,7 +521,7 @@ try:
                 plotly_theme["layout"], 
                 coloraxis_showscale=False, 
                 height=380,
-                margin=dict(l=140, r=20, t=20, b=20)
+                margin=dict(l=110, r=20, t=20, b=20)
             )
             fig_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
             st.plotly_chart(fig_cat, use_container_width=True, config=plotly_config)
@@ -545,22 +564,25 @@ try:
         </div>
         """, unsafe_allow_html=True)
 
+        # 🟢 APLICAÇÃO DA SUA IDEIA: Quebra o nome dos ativos em 2 linhas
+        df_inv_ultimo["Categoria_Label"] = df_inv_ultimo["Categoria"].apply(quebrar_linha_nome)
         df_inv_ultimo["Texto_Valor"] = df_inv_ultimo["Valor"].apply(lambda v: f"R$ {v:,.2f}")
 
         fig_inv_bar = px.bar(
             df_inv_ultimo,
-            x="Valor", y="Categoria", orientation="h",
+            x="Valor", y="Categoria_Label", orientation="h",
             title=f"🏛️ Saldo de Ativos em {ultimo_mes.upper()}",
-            labels={"Valor": "R$", "Categoria": ""},
+            labels={"Valor": "R$", "Categoria_Label": ""},
             color="Valor", 
             color_continuous_scale="Greens",
             text="Texto_Valor"
         )
+        # Reduzimos a margem esquerda (de 160 para 110) pois os textos em 2 linhas ocupam bem menos largura!
         fig_inv_bar.update_layout(
             plotly_theme["layout"], 
             coloraxis_showscale=False, 
-            height=420,
-            margin=dict(l=160, r=40, t=40, b=30)
+            height=460,
+            margin=dict(l=110, r=40, t=40, b=30)
         )
         fig_inv_bar.update_xaxes(tickprefix="R$ ", tickformat="~s")
         fig_inv_bar.update_traces(textposition="outside", textfont=dict(size=11, color="#10B981"))
