@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import time
 
 # -------------------------------------------------------------
 # 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM (CSS)
@@ -12,8 +13,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS Personalizada
+# Estilização CSS e Proteção de Indexação (noindex, nofollow)
 custom_css = """
+<meta name="robots" content="noindex, nofollow">
 <style>
     .stApp {
         background-color: #0E1117;
@@ -67,18 +69,40 @@ custom_css = """
 st.markdown(custom_css, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 1.1 MECANISMO DE LOGIN E PROTEÇÃO POR SENHA
+# 1.1 MECANISMO DE LOGIN, BLOQUEIO DE FORÇA BRUTA & LOGOUT
 # -------------------------------------------------------------
 def check_password():
-    """Retorna True se a senha estiver correta."""
+    """Retorna True se a senha estiver correta e gerencia tentativas."""
+    if "login_attempts" not in st.session_state:
+        st.session_state["login_attempts"] = 0
+    if "lockout_time" not in st.session_state:
+        st.session_state["lockout_time"] = 0
+
+    # Verifica se o sistema está em período de bloqueio (5 minutos após 5 erros)
+    if st.session_state["login_attempts"] >= 5:
+        remaining_time = int(300 - (time.time() - st.session_state["lockout_time"]))
+        if remaining_time > 0:
+            st.markdown("<h2 style='text-align: center; color: #EF4444;'>🚫 Acesso Temporariamente Bloqueado</h2>", unsafe_allow_html=True)
+            st.error(f"Muitas tentativas incorretas. Por razões de segurança, aguarde {remaining_time} segundos para tentar novamente.")
+            return False
+        else:
+            st.session_state["login_attempts"] = 0
+
     def password_entered():
-        # Verifica se a senha definida nos Secrets bate com o input
-        target_password = st.secrets.get("PASSWORD", "123456") # '123456' é senha padrão caso não configure nos Secrets
+        try:
+            target_password = st.secrets["PASSWORD"]
+        except Exception:
+            target_password = "123456"
+
         if st.session_state["password_input"] == target_password:
             st.session_state["password_correct"] = True
+            st.session_state["login_attempts"] = 0
             del st.session_state["password_input"]
         else:
             st.session_state["password_correct"] = False
+            st.session_state["login_attempts"] += 1
+            if st.session_state["login_attempts"] >= 5:
+                st.session_state["lockout_time"] = time.time()
 
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -94,17 +118,22 @@ def check_password():
                 key="password_input"
             )
             if "password_correct" in st.session_state and not st.session_state["password_correct"] and "password_input" not in st.session_state:
-                st.error("😕 Senha incorreta. Tente novamente.")
+                tentativas_restantes = 5 - st.session_state["login_attempts"]
+                st.error(f"😕 Senha incorreta. Tentativas restantes: {tentativas_restantes}")
         return False
     return True
 
 if not check_password():
-    st.stop()  # Interrompe a execução do resto do app até acertar a senha
+    st.stop()
 
 # -------------------------------------------------------------
-# 2. CARREGAMENTO E TRATAMENTO DOS DADOS
+# 2. CARREGAMENTO E TRATAMENTO DOS DADOS (SECRETS SEGURO)
 # -------------------------------------------------------------
-SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
+try:
+    SPREADSHEET_ID = st.secrets.get("SPREADSHEET_ID", "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4")
+except Exception:
+    SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
+
 SHEET_NAME = "2026"
 csv_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={SHEET_NAME}"
 
@@ -122,7 +151,7 @@ try:
     meses = [c for c in meses_ordem_cronologica if c in df_raw.columns]
     
     # -------------------------------------------------------------
-    # 3. SIDEBAR DE CONFIGURAÇÃO (RECOLHIDA POR PADRÃO)
+    # 3. SIDEBAR DE CONFIGURAÇÃO & LOGOUT
     # -------------------------------------------------------------
     st.sidebar.markdown("### ⚙️ Painel de Controle")
     st.sidebar.markdown("Selecione os meses para filtrar a visão do dashboard:")
@@ -134,9 +163,16 @@ try:
     )
     
     st.sidebar.divider()
-    if st.sidebar.button("🔄 Sincronizar Google Sheets", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
+    
+    col_sb1, col_sb2 = st.sidebar.columns(2)
+    with col_sb1:
+        if st.button("🔄 Atualizar", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+    with col_sb2:
+        if st.button("🔒 Sair", use_container_width=True):
+            st.session_state["password_correct"] = False
+            st.rerun()
 
     # -------------------------------------------------------------
     # 4. PROCESSAMENTO DAS REGRAS FINANCEIRAS
@@ -164,19 +200,16 @@ try:
 
         df_melted["Valor"] = df_melted["Valor_Raw"].apply(parse_br_val)
         
-        # Mapeamento de Linhas
         df_receitas = df_melted[df_melted["linha_excel"].isin([2, 3])]
         df_despesas = df_melted[df_melted["linha_excel"].isin([5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17])]
         df_saldo_investido = df_melted[df_melted["linha_excel"] == 16]
         
-        # Aplicações de Investimento: Linhas 22 a 30
         df_carteira_investimentos = df_melted[
             (df_melted["linha_excel"].between(20, 30)) & 
             (~df_melted["Categoria"].str.upper().str.contains("TOTAL")) &
             (df_melted["Categoria"].str.upper() != "INVESTIMENTOS")
         ]
         
-        # Consolidação
         total_rec = df_receitas["Valor"].sum()
         total_desp = df_despesas["Valor"].sum()
         total_investido_mes = df_saldo_investido["Valor"].sum()
@@ -392,7 +425,7 @@ try:
         # 10. RAIO-X INDIVIDUAL
         # -------------------------------------------------------------
         st.markdown("### 🔍 Raio-X & Análise Individual de cada Ativo")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione um ativo ativo para analisar seu histórico de rendimento isolado</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione um ativo para analisar seu histórico de rendimento isolado</p>", unsafe_allow_html=True)
 
         ativos_encerrados = [
             "C6 - CDB C6 Prefixado 1 ano (15,7% a.a.) Venc em 03/06/26",
@@ -500,4 +533,4 @@ try:
             )
 
 except Exception as e:
-    st.error(f"Erro ao carregar dados do Google Sheets: {e}")
+    st.error("Não foi possível carregar as informações no momento. Tente novamente mais tarde.")
