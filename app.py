@@ -112,6 +112,23 @@ custom_css = """
         transition: all 0.25s ease;
     }
 
+    /* Ícone Personalizado do C6 Bank */
+    .c6-logo-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #111;
+        color: #FFF;
+        font-weight: 900;
+        font-size: 0.85rem;
+        padding: 3px 8px;
+        border-radius: 6px;
+        border: 1px solid #333;
+        letter-spacing: -0.05em;
+        vertical-align: middle;
+        margin-right: 8px;
+    }
+
     @media (max-width: 768px) {
         .nav-link-btn {
             flex: 1 1 calc(33% - 8px);
@@ -148,7 +165,6 @@ plotly_config = {
     'responsive': True
 }
 
-# 🚀 FUNÇÃO DE SIMPLIFICAÇÃO INTELIGENTE DE CATEGORIAS DA FATURA
 def simplificar_categoria_fatura(cat_orig):
     c = str(cat_orig).strip()
     c_upper = c.upper()
@@ -390,7 +406,7 @@ try:
     st.markdown("""
     <div class="nav-container">
         <a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Caixa</a>
-        <a class='nav-link-btn' href='#fatura-c6'>💳 Fatura C6</a>
+        <a class='nav-link-btn' href='#fatura-c6'>🖤 Fatura C6</a>
         <a class='nav-link-btn' href='#investimentos'>📊 Ativos</a>
         <a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro</a>
         <a class='nav-link-btn' href='#raio-x'>🔍 Raio-X</a>
@@ -578,7 +594,14 @@ try:
         # 💳 DETALHAMENTO DA FATURA C6 BANK & COMPROMISSOS FUTUROS
         # -------------------------------------------------------------
         st.markdown("<a id='fatura-c6'></a>", unsafe_allow_html=True)
-        st.markdown("### 💳 Raio-X da Fatura C6 Bank & Parcelas Futuras")
+        
+        # 🔴 TÍTULO DA SEÇÃO COM LOGO/ÍCONE PERSONALIZADO DO C6 BANK
+        st.markdown("""
+        <h3 style='display: flex; align-items: center; margin-bottom: 0px;'>
+            <span class="c6-logo-badge">C6</span>
+            Raio-X da Fatura C6 Bank & Parcelas Futuras
+        </h3>
+        """, unsafe_allow_html=True)
         st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise detalhada dos lançamentos atuais e projeção de compromissos a vencer</p>", unsafe_allow_html=True)
 
         try:
@@ -691,7 +714,6 @@ try:
                 with col_fat1:
                     st.markdown("##### 📌 Gastos da Fatura por Categoria")
                     if "Categoria" in df_fatura_compras.columns:
-                        # 🟢 APLICA A SIMPLIFICAÇÃO INTELIGENTE DE CATEGORIAS
                         df_fatura_compras["Categoria_Limpa"] = df_fatura_compras["Categoria"].apply(simplificar_categoria_fatura)
                         
                         df_fat_cat = df_fatura_compras.groupby("Categoria_Limpa")["Valor_Num"].sum().reset_index()
@@ -704,7 +726,6 @@ try:
                             color="Valor_Num",
                             color_continuous_scale="Reds"
                         )
-                        # 🟢 AUMENTO DE ALTURA E MARGEM PARA LEITURA PERFEITA EM CELULAR
                         fig_fat_cat.update_layout(
                             plotly_theme["layout"],
                             coloraxis_showscale=False,
