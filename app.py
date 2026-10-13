@@ -4,6 +4,7 @@ import plotly.express as px
 import time
 import requests
 import yfinance as yf
+import urllib.parse
 
 # -------------------------------------------------------------
 # 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM RESPONSIVO (CSS)
@@ -15,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS com Suporte a Telas Móveis (Responsive Media Queries)
+# Estilização CSS com Suporte a Telas Móveis
 custom_css = """
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -68,7 +69,6 @@ custom_css = """
     .val-blue { color: #3B82F6; }
     .val-purple { color: #A855F7; }
 
-    /* Botões de Navegação Rápida (Navbar Estilizada) */
     .nav-container {
         display: flex;
         gap: 8px;
@@ -95,7 +95,6 @@ custom_css = """
         border-color: #3B82F6;
     }
 
-    /* BOTÃO FLUTUANTE DE VOLTAR AO TOPO (CANTO INFERIOR ESQUERDO) */
     .back-to-top-btn {
         position: fixed;
         bottom: 20px;
@@ -113,7 +112,6 @@ custom_css = """
         transition: all 0.25s ease;
     }
 
-    /* AJUSTES RESPONSIVOS PARA SMARTPHONES */
     @media (max-width: 768px) {
         .nav-link-btn {
             flex: 1 1 calc(33% - 8px);
@@ -150,7 +148,6 @@ plotly_config = {
     'responsive': True
 }
 
-# Função auxiliar para quebrar textos longos em 2 linhas para os eixos do Plotly
 def quebrar_linha_nome(texto, max_chars=18):
     texto_str = str(texto).strip()
     if len(texto_str) <= max_chars:
@@ -276,9 +273,6 @@ except Exception:
     SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
     FATURA_SHEET_ID = "1PUXXGAfn8dmqqR1qCcrJMMF32wUGng_MHpQ7-5GSbOY"
 
-# -------------------------------------------------------------
-# ⚓ ÂNCORA DO TOPO DA PÁGINA + BOTÃO FLUTUANTE DE VOLTAR AO TOPO
-# -------------------------------------------------------------
 st.markdown("<a id='topo'></a>", unsafe_allow_html=True)
 st.markdown("<a href='#topo' class='back-to-top-btn'>⬆️ Topo</a>", unsafe_allow_html=True)
 
@@ -358,7 +352,7 @@ try:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 🚀 MENU DE NAVEGAÇÃO RÁPIDA (CARROSSEL / GRID COMPACTO NO MOBILE)
+    # 🚀 MENU DE NAVEGAÇÃO RÁPIDA
     # -------------------------------------------------------------
     st.markdown("##### 🧭 Navegação Rápida")
     st.markdown("""
@@ -549,24 +543,35 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 💳 NOVA SEÇÃO: DETALHAMENTO DA FATURA C6 BANK
+        # 💳 NOVA SEÇÃO: DETALHAMENTO DA FATURA C6 BANK (COM TRATAMENTO DE ERROS)
         # -------------------------------------------------------------
         st.markdown("<a id='fatura-c6'></a>", unsafe_allow_html=True)
         st.markdown("### 💳 Raio-X da Fatura C6 Bank")
         st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise detalhada dos lançamentos e gastos por categoria do cartão de crédito</p>", unsafe_allow_html=True)
 
         try:
-            fatura_csv_url = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Out%20/%2026"
-            df_fatura_raw = load_data(fatura_csv_url)
-
-            # Tratamento de Colunas da Fatura
-            df_fatura_raw.columns = [c.strip() for c in df_fatura_raw.columns]
+            # Tenta carregar pela URL da aba codificada ou diretamente pela primeira aba caso a aba mude
+            aba_encoded = urllib.parse.quote("Out / 26")
+            fatura_csv_url = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba_encoded}"
             
-            if "Valor (em R$)" in df_fatura_raw.columns:
+            try:
+                df_fatura_raw = load_data(fatura_csv_url)
+            except Exception:
+                # Fallback: carrega a primeira aba caso a aba com nome específico falhe
+                fatura_csv_fallback = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv"
+                df_fatura_raw = load_data(fatura_csv_fallback)
+
+            df_fatura_raw.columns = [str(c).strip() for c in df_fatura_raw.columns]
+            
+            # Identificação flexível da coluna de valor
+            col_valor = [c for c in df_fatura_raw.columns if "Valor" in c and "R$" in c]
+            col_valor_str = col_valor[0] if col_valor else "Valor (em R$)"
+
+            if col_valor_str in df_fatura_raw.columns:
                 df_fatura = df_fatura_raw.copy()
-                df_fatura["Valor_Num"] = df_fatura["Valor (em R$)"].apply(parse_br_val)
+                df_fatura["Valor_Num"] = df_fatura[col_valor_str].apply(parse_br_val)
                 
-                # Ignora Pagamentos de Fatura / Estornos que possuem valores negativos
+                # Desconsidera pagamentos de fatura e estornos
                 df_fatura_compras = df_fatura[df_fatura["Valor_Num"] > 0].copy()
                 
                 total_fatura = df_fatura_compras["Valor_Num"].sum()
@@ -575,7 +580,7 @@ try:
                 
                 maior_compra_row = df_fatura_compras.loc[df_fatura_compras["Valor_Num"].idxmax()] if not df_fatura_compras.empty else None
                 maior_compra_val = maior_compra_row["Valor_Num"] if maior_compra_row is not None else 0.0
-                maior_compra_desc = maior_compra_row["Descrição"] if maior_compra_row is not None else "-"
+                maior_compra_desc = maior_compra_row["Descrição"] if (maior_compra_row is not None and "Descrição" in maior_compra_row) else "-"
 
                 # Cards KPI da Fatura
                 cf1, cf2, cf3, cf4 = st.columns(4)
@@ -621,64 +626,69 @@ try:
 
                 with col_fat1:
                     st.markdown("##### 📌 Gastos da Fatura por Categoria")
-                    df_fat_cat = df_fatura_compras.groupby("Categoria")["Valor_Num"].sum().reset_index()
-                    df_fat_cat = df_fat_cat[df_fat_cat["Categoria"] != "-"].sort_values(by="Valor_Num", ascending=True)
-                    df_fat_cat["Categoria_Label"] = df_fat_cat["Categoria"].apply(quebrar_linha_nome)
+                    if "Categoria" in df_fatura_compras.columns:
+                        df_fat_cat = df_fatura_compras.groupby("Categoria")["Valor_Num"].sum().reset_index()
+                        df_fat_cat = df_fat_cat[df_fat_cat["Categoria"] != "-"].sort_values(by="Valor_Num", ascending=True)
+                        df_fat_cat["Categoria_Label"] = df_fat_cat["Categoria"].apply(quebrar_linha_nome)
 
-                    fig_fat_cat = px.bar(
-                        df_fat_cat,
-                        x="Valor_Num", y="Categoria_Label", orientation="h",
-                        labels={"Valor_Num": "R$", "Categoria_Label": ""},
-                        color="Valor_Num",
-                        color_continuous_scale="Reds"
-                    )
-                    fig_fat_cat.update_layout(
-                        plotly_theme["layout"],
-                        coloraxis_showscale=False,
-                        height=400,
-                        margin=dict(l=120, r=20, t=20, b=20)
-                    )
-                    fig_fat_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
-                    st.plotly_chart(fig_fat_cat, use_container_width=True, config=plotly_config)
+                        fig_fat_cat = px.bar(
+                            df_fat_cat,
+                            x="Valor_Num", y="Categoria_Label", orientation="h",
+                            labels={"Valor_Num": "R$", "Categoria_Label": ""},
+                            color="Valor_Num",
+                            color_continuous_scale="Reds"
+                        )
+                        fig_fat_cat.update_layout(
+                            plotly_theme["layout"],
+                            coloraxis_showscale=False,
+                            height=400,
+                            margin=dict(l=120, r=20, t=20, b=20)
+                        )
+                        fig_fat_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
+                        st.plotly_chart(fig_fat_cat, use_container_width=True, config=plotly_config)
 
                 with col_fat2:
                     st.markdown("##### 🏆 Top 10 Maiores Compras do Mês")
-                    df_top10 = df_fatura_compras.sort_values(by="Valor_Num", ascending=False).head(10).copy()
-                    df_top10["Descrição_Label"] = df_top10["Descrição"].apply(lambda d: quebrar_linha_nome(d, max_chars=15))
-                    df_top10 = df_top10.sort_values(by="Valor_Num", ascending=True)
+                    if "Descrição" in df_fatura_compras.columns:
+                        df_top10 = df_fatura_compras.sort_values(by="Valor_Num", ascending=False).head(10).copy()
+                        df_top10["Descrição_Label"] = df_top10["Descrição"].apply(lambda d: quebrar_linha_nome(d, max_chars=15))
+                        df_top10 = df_top10.sort_values(by="Valor_Num", ascending=True)
 
-                    fig_top10 = px.bar(
-                        df_top10,
-                        x="Valor_Num", y="Descrição_Label", orientation="h",
-                        labels={"Valor_Num": "R$", "Descrição_Label": ""},
-                        color="Valor_Num",
-                        color_continuous_scale="Purples"
-                    )
-                    fig_top10.update_layout(
-                        plotly_theme["layout"],
-                        coloraxis_showscale=False,
-                        height=400,
-                        margin=dict(l=130, r=20, t=20, b=20)
-                    )
-                    fig_top10.update_xaxes(tickprefix="R$ ", tickformat="~s")
-                    st.plotly_chart(fig_top10, use_container_width=True, config=plotly_config)
+                        fig_top10 = px.bar(
+                            df_top10,
+                            x="Valor_Num", y="Descrição_Label", orientation="h",
+                            labels={"Valor_Num": "R$", "Descrição_Label": ""},
+                            color="Valor_Num",
+                            color_continuous_scale="Purples"
+                        )
+                        fig_top10.update_layout(
+                            plotly_theme["layout"],
+                            coloraxis_showscale=False,
+                            height=400,
+                            margin=dict(l=130, r=20, t=20, b=20)
+                        )
+                        fig_top10.update_xaxes(tickprefix="R$ ", tickformat="~s")
+                        st.plotly_chart(fig_top10, use_container_width=True, config=plotly_config)
 
                 # Tabela Interativa de Busca na Fatura
                 st.markdown("##### 🔎 Pesquisar Lançamento na Fatura")
                 busca_compra = st.text_input("Digite o nome da loja, estabelecimento ou categoria:", "")
                 
-                df_fat_display = df_fatura_compras[["Data de compra", "Descrição", "Categoria", "Parcela", "Valor (em R$)"]].copy()
+                cols_exibir = [c for c in ["Data de compra", "Descrição", "Categoria", "Parcela", col_valor_str] if c in df_fatura_compras.columns]
+                df_fat_display = df_fatura_compras[cols_exibir].copy()
                 
                 if busca_compra:
-                    df_fat_display = df_fat_display[
-                        df_fat_display["Descrição"].str.contains(busca_compra, case=False, na=False) |
-                        df_fat_display["Categoria"].str.contains(busca_compra, case=False, na=False)
-                    ]
+                    mask = pd.Series(False, index=df_fat_display.index)
+                    if "Descrição" in df_fat_display.columns:
+                        mask |= df_fat_display["Descrição"].str.contains(busca_compra, case=False, na=False)
+                    if "Categoria" in df_fat_display.columns:
+                        mask |= df_fat_display["Categoria"].str.contains(busca_compra, case=False, na=False)
+                    df_fat_display = df_fat_display[mask]
                 
                 st.dataframe(df_fat_display, use_container_width=True, hide_index=True)
 
         except Exception as e_fat:
-            st.warning("⚠️ Não foi possível carregar a aba 'Out / 26' da Fatura C6. Verifique o compartilhamento da planilha.")
+            st.warning("⚠️ Não foi possível carregar os dados da Fatura C6. Por favor, confirme se o compartilhamento da planilha está definido para 'Qualquer pessoa com o link'.")
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
