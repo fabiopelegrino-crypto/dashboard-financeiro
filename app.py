@@ -148,6 +148,38 @@ plotly_config = {
     'responsive': True
 }
 
+# 🚀 FUNÇÃO DE SIMPLIFICAÇÃO INTELIGENTE DE CATEGORIAS DA FATURA
+def simplificar_categoria_fatura(cat_orig):
+    c = str(cat_orig).strip()
+    c_upper = c.upper()
+    
+    if "SUPERMERCADO" in c_upper or "CONVENIÊNCIA" in c_upper or "MERCEARIA" in c_upper:
+        return "Mercado / Padaria"
+    elif "RESTAURANTE" in c_upper or "LANCHONETE" in c_upper or "BAR" in c_upper:
+        return "Restaurantes & Bares"
+    elif "ASSISTÊNCIA MÉDICA" in c_upper or "ODONTOLÓGICA" in c_upper or "SAÚDE" in c_upper:
+        return "Saúde & Médica"
+    elif "TV POR ASSINATURA" in c_upper or "RÁDIO" in c_upper or "STREAMING" in c_upper:
+        return "Streaming & TV"
+    elif "AUTOMOTIVO" in c_upper or "VEÍCULO" in c_upper:
+        return "Automotivo"
+    elif "DEPARTAMENTO" in c_upper or "DESCONTO" in c_upper:
+        return "Lojas de Depto."
+    elif "SERVIÇOS PESSOAIS" in c_upper:
+        return "Serviços Pessoais"
+    elif "VESTUÁRIO" in c_upper or "ROUPAS" in c_upper:
+        return "Vestuário & Roupas"
+    elif "EMPRESA PARA EMPRESA" in c_upper:
+        return "B2B / Serviços"
+    elif "ESPECIALIDADE VAREJO" in c_upper:
+        return "Varejo Geral"
+    elif "ENTRETENIMENTO" in c_upper:
+        return "Entretenimento"
+    elif "TRANSPORTE" in c_upper:
+        return "Transporte / App"
+    else:
+        return c
+
 def quebrar_linha_nome(texto, max_chars=18):
     texto_str = str(texto).strip()
     if len(texto_str) <= max_chars:
@@ -659,23 +691,27 @@ try:
                 with col_fat1:
                     st.markdown("##### 📌 Gastos da Fatura por Categoria")
                     if "Categoria" in df_fatura_compras.columns:
-                        df_fat_cat = df_fatura_compras.groupby("Categoria")["Valor_Num"].sum().reset_index()
-                        df_fat_cat = df_fat_cat[df_fat_cat["Categoria"] != "-"].sort_values(by="Valor_Num", ascending=True)
-                        df_fat_cat["Categoria_Label"] = df_fat_cat["Categoria"].apply(quebrar_linha_nome)
+                        # 🟢 APLICA A SIMPLIFICAÇÃO INTELIGENTE DE CATEGORIAS
+                        df_fatura_compras["Categoria_Limpa"] = df_fatura_compras["Categoria"].apply(simplificar_categoria_fatura)
+                        
+                        df_fat_cat = df_fatura_compras.groupby("Categoria_Limpa")["Valor_Num"].sum().reset_index()
+                        df_fat_cat = df_fat_cat[df_fat_cat["Categoria_Limpa"] != "-"].sort_values(by="Valor_Num", ascending=True)
 
                         fig_fat_cat = px.bar(
                             df_fat_cat,
-                            x="Valor_Num", y="Categoria_Label", orientation="h",
-                            labels={"Valor_Num": "R$", "Categoria_Label": ""},
+                            x="Valor_Num", y="Categoria_Limpa", orientation="h",
+                            labels={"Valor_Num": "R$", "Categoria_Limpa": ""},
                             color="Valor_Num",
                             color_continuous_scale="Reds"
                         )
+                        # 🟢 AUMENTO DE ALTURA E MARGEM PARA LEITURA PERFEITA EM CELULAR
                         fig_fat_cat.update_layout(
                             plotly_theme["layout"],
                             coloraxis_showscale=False,
-                            height=400,
-                            margin=dict(l=120, r=20, t=20, b=20)
+                            height=520,
+                            margin=dict(l=140, r=20, t=20, b=20)
                         )
+                        fig_fat_cat.update_yaxes(tickfont=dict(size=11))
                         fig_fat_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
                         st.plotly_chart(fig_fat_cat, use_container_width=True, config=plotly_config)
 
@@ -683,7 +719,7 @@ try:
                     st.markdown("##### 🏆 Top 10 Maiores Compras do Mês")
                     if "Descrição" in df_fatura_compras.columns:
                         df_top10 = df_fatura_compras.sort_values(by="Valor_Num", ascending=False).head(10).copy()
-                        df_top10["Descrição_Label"] = df_top10["Descrição"].apply(lambda d: quebrar_linha_nome(d, max_chars=15))
+                        df_top10["Descrição_Label"] = df_top10["Descrição"].apply(lambda d: quebrar_linha_nome(d, max_chars=16))
                         df_top10 = df_top10.sort_values(by="Valor_Num", ascending=True)
 
                         fig_top10 = px.bar(
@@ -696,9 +732,10 @@ try:
                         fig_top10.update_layout(
                             plotly_theme["layout"],
                             coloraxis_showscale=False,
-                            height=400,
+                            height=520,
                             margin=dict(l=130, r=20, t=20, b=20)
                         )
+                        fig_top10.update_yaxes(tickfont=dict(size=11))
                         fig_top10.update_xaxes(tickprefix="R$ ", tickformat="~s")
                         st.plotly_chart(fig_top10, use_container_width=True, config=plotly_config)
 
