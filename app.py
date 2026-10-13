@@ -543,84 +543,116 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
-        # 💳 NOVA SEÇÃO: DETALHAMENTO DA FATURA C6 BANK (COM TRATAMENTO DE ERROS)
+        # 💳 DETALHAMENTO DA FATURA C6 BANK & COMPROMISSOS FUTUROS
         # -------------------------------------------------------------
         st.markdown("<a id='fatura-c6'></a>", unsafe_allow_html=True)
-        st.markdown("### 💳 Raio-X da Fatura C6 Bank")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise detalhada dos lançamentos e gastos por categoria do cartão de crédito</p>", unsafe_allow_html=True)
+        st.markdown("### 💳 Raio-X da Fatura C6 Bank & Parcelas Futuras")
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise detalhada dos lançamentos atuais e projeção de compromissos a vencer</p>", unsafe_allow_html=True)
 
         try:
-            # Tenta carregar pela URL da aba codificada ou diretamente pela primeira aba caso a aba mude
             aba_encoded = urllib.parse.quote("Out / 26")
             fatura_csv_url = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba_encoded}"
             
             try:
                 df_fatura_raw = load_data(fatura_csv_url)
             except Exception:
-                # Fallback: carrega a primeira aba caso a aba com nome específico falhe
                 fatura_csv_fallback = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv"
                 df_fatura_raw = load_data(fatura_csv_fallback)
 
             df_fatura_raw.columns = [str(c).strip() for c in df_fatura_raw.columns]
-            
-            # Identificação flexível da coluna de valor
             col_valor = [c for c in df_fatura_raw.columns if "Valor" in c and "R$" in c]
             col_valor_str = col_valor[0] if col_valor else "Valor (em R$)"
 
             if col_valor_str in df_fatura_raw.columns:
                 df_fatura = df_fatura_raw.copy()
                 df_fatura["Valor_Num"] = df_fatura[col_valor_str].apply(parse_br_val)
-                
-                # Desconsidera pagamentos de fatura e estornos
                 df_fatura_compras = df_fatura[df_fatura["Valor_Num"] > 0].copy()
                 
                 total_fatura = df_fatura_compras["Valor_Num"].sum()
                 num_compras = len(df_fatura_compras)
-                media_compra = (total_fatura / num_compras) if num_compras > 0 else 0.0
                 
-                maior_compra_row = df_fatura_compras.loc[df_fatura_compras["Valor_Num"].idxmax()] if not df_fatura_compras.empty else None
-                maior_compra_val = maior_compra_row["Valor_Num"] if maior_compra_row is not None else 0.0
-                maior_compra_desc = maior_compra_row["Descrição"] if (maior_compra_row is not None and "Descrição" in maior_compra_row) else "-"
+                # CÁLCULO DE PARCELAS FUTURAS A VENCER
+                parcelas_futuras_list = []
+                total_parcelado_futuro = 0.0
 
-                # Cards KPI da Fatura
+                if "Parcela" in df_fatura_compras.columns:
+                    for idx, row in df_fatura_compras.iterrows():
+                        p_str = str(row["Parcela"]).strip()
+                        if "/" in p_str:
+                            try:
+                                atual, total_p = map(int, p_str.split("/"))
+                                rest = total_p - atual
+                                if rest > 0:
+                                    v_mensal = row["Valor_Num"]
+                                    v_futuro = v_mensal * rest
+                                    total_parcelado_futuro += v_futuro
+                                    
+                                    desc_item = row["Descrição"] if "Descrição" in row else "-"
+                                    cat_item = row["Categoria"] if "Categoria" in row else "-"
+                                    
+                                    parcelas_futuras_list.append({
+                                        "Estabelecimento / Compra": desc_item,
+                                        "Categoria": cat_item,
+                                        "Parcela Atual": f"{atual}/{total_p}",
+                                        "Restantes": f"{rest} x",
+                                        "Valor Mensal": f"R$ {v_mensal:,.2f}",
+                                        "Total a Vencer": f"R$ {v_futuro:,.2f}",
+                                        "val_futuro_num": v_futuro
+                                    })
+                            except Exception:
+                                continue
+
+                # CARDS KPI DA FATURA + PARCELAS FUTURAS
                 cf1, cf2, cf3, cf4 = st.columns(4)
                 with cf1:
                     st.markdown(f"""
                     <div class="kpi-card" style="border-color: #EF4444;">
-                        <div class="kpi-title">Total Fatura (Out/26)</div>
+                        <div class="kpi-title">Fatura Atual (Out/26)</div>
                         <div class="kpi-value val-red">R$ {total_fatura:,.2f}</div>
-                        <div class="kpi-badge badge-neg">Gasto Consumido</div>
+                        <div class="kpi-badge badge-neg">{num_compras} Lançamentos</div>
                     </div>
                     """, unsafe_allow_html=True)
 
                 with cf2:
                     st.markdown(f"""
-                    <div class="kpi-card">
-                        <div class="kpi-title">Maior Compra do Mês</div>
-                        <div class="kpi-value val-purple">R$ {maior_compra_val:,.2f}</div>
-                        <div class="kpi-badge badge-neu">{str(maior_compra_desc)[:20]}...</div>
+                    <div class="kpi-card" style="border-color: #A855F7;">
+                        <div class="kpi-title">Total Parcelado Futuro</div>
+                        <div class="kpi-value val-purple">R$ {total_parcelado_futuro:,.2f}</div>
+                        <div class="kpi-badge badge-neu">Compromisso Futuro</div>
                     </div>
                     """, unsafe_allow_html=True)
 
                 with cf3:
                     st.markdown(f"""
                     <div class="kpi-card">
-                        <div class="kpi-title">Transações Realizadas</div>
-                        <div class="kpi-value val-blue">{num_compras}</div>
-                        <div class="kpi-badge badge-neu">Lançamentos no Cartão</div>
+                        <div class="kpi-title">Compras Parceladas Ativas</div>
+                        <div class="kpi-value val-blue">{len(parcelas_futuras_list)}</div>
+                        <div class="kpi-badge badge-neu">Itens em Aberto</div>
                     </div>
                     """, unsafe_allow_html=True)
 
                 with cf4:
+                    media_compra = (total_fatura / num_compras) if num_compras > 0 else 0.0
                     st.markdown(f"""
                     <div class="kpi-card">
-                        <div class="kpi-title">Ticket Médio por Compra</div>
+                        <div class="kpi-title">Ticket Médio / Compra</div>
                         <div class="kpi-value val-green">R$ {media_compra:,.2f}</div>
-                        <div class="kpi-badge badge-neu">Média / Transação</div>
+                        <div class="kpi-badge badge-neu">Média por Item</div>
                     </div>
                     """, unsafe_allow_html=True)
 
                 st.markdown("<br>", unsafe_allow_html=True)
+
+                # SEÇÃO DE PARCELAS A VENCER
+                if parcelas_futuras_list:
+                    st.markdown("##### ⏳ Compras Parceladas e Saldos a Vencer")
+                    df_pf_display = pd.DataFrame(parcelas_futuras_list).sort_values(by="val_futuro_num", ascending=False)
+                    st.dataframe(
+                        df_pf_display[["Estabelecimento / Compra", "Categoria", "Parcela Atual", "Restantes", "Valor Mensal", "Total a Vencer"]],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    st.markdown("<br>", unsafe_allow_html=True)
 
                 col_fat1, col_fat2 = st.columns([1.2, 1])
 
