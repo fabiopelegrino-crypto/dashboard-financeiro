@@ -5,13 +5,14 @@ import time
 import requests
 import yfinance as yf
 import urllib.parse
+import os
 
 # -------------------------------------------------------------
 # 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM RESPONSIVO (CSS)
 # -------------------------------------------------------------
 st.set_page_config(
-    page_title="Finances AI | Dashboard Financeiro", 
-    page_icon="💳", 
+    page_title="Finances AI | Fabio Pelegrino", 
+    page_icon="💎", 
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -112,7 +113,21 @@ custom_css = """
         transition: all 0.25s ease;
     }
 
-    /* Ícone Personalizado do C6 Bank */
+    /* Estilo da Foto e Cabeçalho de Login Executivo */
+    .profile-img-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 15px;
+    }
+    .profile-img {
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #3B82F6;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+    }
+
     .c6-logo-badge {
         display: inline-flex;
         align-items: center;
@@ -213,7 +228,7 @@ def quebrar_linha_nome(texto, max_chars=18):
     return "<br>".join([" ".join(palavras[:meio]), " ".join(palavras[meio:])])
 
 # -------------------------------------------------------------
-# 1.1 MECANISMO DE LOGIN COM BOTÃO "ACESSAR" & BLOQUEIO
+# 1.1 MECANISMO DE LOGIN PERSONALIZADO COM FOTO E NOME
 # -------------------------------------------------------------
 def check_password():
     MAX_TENTATIVAS = 3
@@ -236,12 +251,28 @@ def check_password():
         st.session_state["password_correct"] = False
 
     if not st.session_state["password_correct"]:
-        st.markdown("<h2 style='text-align: center; color: #3B82F6;'>🔐 Acesso Restrito</h2>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
+        col1, col2, col3 = st.columns([1, 1.8, 1])
         with col2:
+            st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+            
+            # Exibição da Foto (verifica se o arquivo eu.jpg existe localmente)
+            if os.path.exists("eu.jpg"):
+                st.markdown("""
+                <div class="profile-img-container">
+                    <img src="app/static/eu.jpg" class="profile-img" alt="Fabio Pelegrino">
+                </div>
+                """, unsafe_allow_html=True)
+                # Fallback Streamlit nativo caso estático não carregue
+                col_i1, col_i2, col_i3 = st.columns([1, 1.2, 1])
+                with col_i2:
+                    st.image("eu.jpg", use_container_width=True)
+            
+            st.markdown("<h2 style='text-align: center; color: #3B82F6; margin-bottom: 2px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #9CA3AF; font-size: 0.95rem; font-weight: 600; margin-bottom: 20px;'>Acesso Exclusivo | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
+
             with st.form("login_form"):
-                password_input = st.text_input("Senha de acesso:", type="password")
-                submit_button = st.form_submit_button("🔑 Acessar", use_container_width=True)
+                password_input = st.text_input("Senha de acesso:", type="password", placeholder="Digite sua senha...")
+                submit_button = st.form_submit_button("🔑 Acessar Painel", use_container_width=True)
 
                 if submit_button:
                     try:
@@ -328,7 +359,7 @@ st.markdown("<a href='#topo' class='back-to-top-btn'>⬆️ Topo</a>", unsafe_al
 # 3. HEADER DO DASHBOARD & BENCHMARKS MACRO
 # -------------------------------------------------------------
 st.markdown("<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 12px;'>Visão executiva de fluxo de caixa, alocação, cartão de crédito e mercado</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 12px;'>Visão executiva de fluxo de caixa, alocação, cartão de crédito e mercado | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 with col_m1:
@@ -392,7 +423,7 @@ try:
 
     # Sidebar compacta
     st.sidebar.markdown("### ⚙️ Painel")
-    st.sidebar.info(f"📅 **Ano:** {ano_selecionado}")
+    st.sidebar.info(f"👤 **Fabio Pelegrino**\n📅 **Ano:** {ano_selecionado}")
     if st.sidebar.button("🔒 Sair", use_container_width=True):
         st.session_state["password_correct"] = False
         st.rerun()
@@ -594,8 +625,6 @@ try:
         # 💳 DETALHAMENTO DA FATURA C6 BANK & COMPROMISSOS FUTUROS
         # -------------------------------------------------------------
         st.markdown("<a id='fatura-c6'></a>", unsafe_allow_html=True)
-        
-        # 🔴 TÍTULO DA SEÇÃO COM LOGO/ÍCONE PERSONALIZADO DO C6 BANK
         st.markdown("""
         <h3 style='display: flex; align-items: center; margin-bottom: 0px;'>
             <span class="c6-logo-badge">C6</span>
@@ -778,7 +807,7 @@ try:
                 st.dataframe(df_fat_display, use_container_width=True, hide_index=True)
 
         except Exception as e_fat:
-            st.warning("⚠️ Não foi possível carregar os dados da Fatura C6. Por favor, confirme se o compartilhamento da planilha está definido para 'Qualquer pessoa com o link'.")
+            st.warning("⚠️ Não foi possível carregar os dados da Fatura C6. Por favor, confirme se o compartilhamento da planilha está definido para 'Qualquer pessoa com el link'.")
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
