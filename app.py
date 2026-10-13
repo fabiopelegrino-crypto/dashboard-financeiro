@@ -76,7 +76,7 @@ custom_css = """
         margin-bottom: 15px;
     }
     .nav-link-btn {
-        flex: 1 1 calc(20% - 8px);
+        flex: 1 1 calc(16% - 8px);
         text-align: center;
         background: #161B26;
         color: #9CA3AF !important;
@@ -95,7 +95,7 @@ custom_css = """
         border-color: #3B82F6;
     }
 
-    /* 🚀 BOTÃO FLUTUANTE DE VOLTAR AO TOPO (CANTO INFERIOR ESQUERDO) */
+    /* BOTÃO FLUTUANTE DE VOLTAR AO TOPO (CANTO INFERIOR ESQUERDO) */
     .back-to-top-btn {
         position: fixed;
         bottom: 20px;
@@ -116,7 +116,7 @@ custom_css = """
     /* AJUSTES RESPONSIVOS PARA SMARTPHONES */
     @media (max-width: 768px) {
         .nav-link-btn {
-            flex: 1 1 calc(50% - 8px);
+            flex: 1 1 calc(33% - 8px);
             font-size: 0.75rem;
             padding: 8px 6px;
         }
@@ -145,7 +145,6 @@ custom_css = """
 """
 st.markdown(custom_css, unsafe_allow_html=True)
 
-# Configuração Padrão do Plotly para Mobile
 plotly_config = {
     'displayModeBar': False, 
     'responsive': True
@@ -157,12 +156,13 @@ def quebrar_linha_nome(texto, max_chars=18):
     if len(texto_str) <= max_chars:
         return texto_str
     
-    # Se houver hífen, quebra no primeiro hífen
     if " - " in texto_str:
         partes = texto_str.split(" - ", 1)
         return f"{partes[0]} -<br>{partes[1]}"
+    if " / " in texto_str:
+        partes = texto_str.split(" / ", 1)
+        return f"{partes[0]} /<br>{partes[1]}"
     
-    # Caso contrário, quebra no espaço mais próximo do meio
     palavras = texto_str.split(" ")
     meio = len(palavras) // 2
     return "<br>".join([" ".join(palavras[:meio]), " ".join(palavras[meio:])])
@@ -271,8 +271,10 @@ selic_str, cdi_str, mxrf11_price_str, mxrf11_var_html = fetch_market_indicators(
 # -------------------------------------------------------------
 try:
     SPREADSHEET_ID = st.secrets.get("SPREADSHEET_ID", "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4")
+    FATURA_SHEET_ID = st.secrets.get("FATURA_SHEET_ID", "1PUXXGAfn8dmqqR1qCcrJMMF32wUGng_MHpQ7-5GSbOY")
 except Exception:
     SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
+    FATURA_SHEET_ID = "1PUXXGAfn8dmqqR1qCcrJMMF32wUGng_MHpQ7-5GSbOY"
 
 # -------------------------------------------------------------
 # ⚓ ÂNCORA DO TOPO DA PÁGINA + BOTÃO FLUTUANTE DE VOLTAR AO TOPO
@@ -284,7 +286,7 @@ st.markdown("<a href='#topo' class='back-to-top-btn'>⬆️ Topo</a>", unsafe_al
 # 3. HEADER DO DASHBOARD & BENCHMARKS MACRO
 # -------------------------------------------------------------
 st.markdown("<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 12px;'>Visão executiva de fluxo de caixa, alocação e mercado</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 12px;'>Visão executiva de fluxo de caixa, alocação, cartão de crédito e mercado</p>", unsafe_allow_html=True)
 
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 with col_m1:
@@ -298,7 +300,7 @@ with col_m3:
     st.markdown(f"**{mxrf11_price_str}** {mxrf11_var_html}", unsafe_allow_html=True)
 with col_m4:
     st.caption("⚡ Status Conexão")
-    st.markdown("**🟢 Planilha Ativa**")
+    st.markdown("**🟢 Planilhas Ativas**")
 
 st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
 
@@ -362,6 +364,7 @@ try:
     st.markdown("""
     <div class="nav-container">
         <a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Caixa</a>
+        <a class='nav-link-btn' href='#fatura-c6'>💳 Fatura C6</a>
         <a class='nav-link-btn' href='#investimentos'>📊 Ativos</a>
         <a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro</a>
         <a class='nav-link-btn' href='#raio-x'>🔍 Raio-X</a>
@@ -506,8 +509,6 @@ try:
             st.markdown("##### 📌 Distribuição de Despesas Operacionais")
             df_desp_cat = df_despesas.groupby("Categoria")["Valor"].sum().reset_index()
             df_desp_cat = df_desp_cat[df_desp_cat["Valor"] > 0].sort_values(by="Valor", ascending=True)
-            
-            # Quebra o nome das despesas em 2 linhas se for muito longo
             df_desp_cat["Categoria_Label"] = df_desp_cat["Categoria"].apply(quebrar_linha_nome)
 
             fig_cat = px.bar(
@@ -548,6 +549,140 @@ try:
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
+        # 💳 NOVA SEÇÃO: DETALHAMENTO DA FATURA C6 BANK
+        # -------------------------------------------------------------
+        st.markdown("<a id='fatura-c6'></a>", unsafe_allow_html=True)
+        st.markdown("### 💳 Raio-X da Fatura C6 Bank")
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise detalhada dos lançamentos e gastos por categoria do cartão de crédito</p>", unsafe_allow_html=True)
+
+        try:
+            fatura_csv_url = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Out%20/%2026"
+            df_fatura_raw = load_data(fatura_csv_url)
+
+            # Tratamento de Colunas da Fatura
+            df_fatura_raw.columns = [c.strip() for c in df_fatura_raw.columns]
+            
+            if "Valor (em R$)" in df_fatura_raw.columns:
+                df_fatura = df_fatura_raw.copy()
+                df_fatura["Valor_Num"] = df_fatura["Valor (em R$)"].apply(parse_br_val)
+                
+                # Ignora Pagamentos de Fatura / Estornos que possuem valores negativos
+                df_fatura_compras = df_fatura[df_fatura["Valor_Num"] > 0].copy()
+                
+                total_fatura = df_fatura_compras["Valor_Num"].sum()
+                num_compras = len(df_fatura_compras)
+                media_compra = (total_fatura / num_compras) if num_compras > 0 else 0.0
+                
+                maior_compra_row = df_fatura_compras.loc[df_fatura_compras["Valor_Num"].idxmax()] if not df_fatura_compras.empty else None
+                maior_compra_val = maior_compra_row["Valor_Num"] if maior_compra_row is not None else 0.0
+                maior_compra_desc = maior_compra_row["Descrição"] if maior_compra_row is not None else "-"
+
+                # Cards KPI da Fatura
+                cf1, cf2, cf3, cf4 = st.columns(4)
+                with cf1:
+                    st.markdown(f"""
+                    <div class="kpi-card" style="border-color: #EF4444;">
+                        <div class="kpi-title">Total Fatura (Out/26)</div>
+                        <div class="kpi-value val-red">R$ {total_fatura:,.2f}</div>
+                        <div class="kpi-badge badge-neg">Gasto Consumido</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with cf2:
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Maior Compra do Mês</div>
+                        <div class="kpi-value val-purple">R$ {maior_compra_val:,.2f}</div>
+                        <div class="kpi-badge badge-neu">{str(maior_compra_desc)[:20]}...</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with cf3:
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Transações Realizadas</div>
+                        <div class="kpi-value val-blue">{num_compras}</div>
+                        <div class="kpi-badge badge-neu">Lançamentos no Cartão</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with cf4:
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Ticket Médio por Compra</div>
+                        <div class="kpi-value val-green">R$ {media_compra:,.2f}</div>
+                        <div class="kpi-badge badge-neu">Média / Transação</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                col_fat1, col_fat2 = st.columns([1.2, 1])
+
+                with col_fat1:
+                    st.markdown("##### 📌 Gastos da Fatura por Categoria")
+                    df_fat_cat = df_fatura_compras.groupby("Categoria")["Valor_Num"].sum().reset_index()
+                    df_fat_cat = df_fat_cat[df_fat_cat["Categoria"] != "-"].sort_values(by="Valor_Num", ascending=True)
+                    df_fat_cat["Categoria_Label"] = df_fat_cat["Categoria"].apply(quebrar_linha_nome)
+
+                    fig_fat_cat = px.bar(
+                        df_fat_cat,
+                        x="Valor_Num", y="Categoria_Label", orientation="h",
+                        labels={"Valor_Num": "R$", "Categoria_Label": ""},
+                        color="Valor_Num",
+                        color_continuous_scale="Reds"
+                    )
+                    fig_fat_cat.update_layout(
+                        plotly_theme["layout"],
+                        coloraxis_showscale=False,
+                        height=400,
+                        margin=dict(l=120, r=20, t=20, b=20)
+                    )
+                    fig_fat_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
+                    st.plotly_chart(fig_fat_cat, use_container_width=True, config=plotly_config)
+
+                with col_fat2:
+                    st.markdown("##### 🏆 Top 10 Maiores Compras do Mês")
+                    df_top10 = df_fatura_compras.sort_values(by="Valor_Num", ascending=False).head(10).copy()
+                    df_top10["Descrição_Label"] = df_top10["Descrição"].apply(lambda d: quebrar_linha_nome(d, max_chars=15))
+                    df_top10 = df_top10.sort_values(by="Valor_Num", ascending=True)
+
+                    fig_top10 = px.bar(
+                        df_top10,
+                        x="Valor_Num", y="Descrição_Label", orientation="h",
+                        labels={"Valor_Num": "R$", "Descrição_Label": ""},
+                        color="Valor_Num",
+                        color_continuous_scale="Purples"
+                    )
+                    fig_top10.update_layout(
+                        plotly_theme["layout"],
+                        coloraxis_showscale=False,
+                        height=400,
+                        margin=dict(l=130, r=20, t=20, b=20)
+                    )
+                    fig_top10.update_xaxes(tickprefix="R$ ", tickformat="~s")
+                    st.plotly_chart(fig_top10, use_container_width=True, config=plotly_config)
+
+                # Tabela Interativa de Busca na Fatura
+                st.markdown("##### 🔎 Pesquisar Lançamento na Fatura")
+                busca_compra = st.text_input("Digite o nome da loja, estabelecimento ou categoria:", "")
+                
+                df_fat_display = df_fatura_compras[["Data de compra", "Descrição", "Categoria", "Parcela", "Valor (em R$)"]].copy()
+                
+                if busca_compra:
+                    df_fat_display = df_fat_display[
+                        df_fat_display["Descrição"].str.contains(busca_compra, case=False, na=False) |
+                        df_fat_display["Categoria"].str.contains(busca_compra, case=False, na=False)
+                    ]
+                
+                st.dataframe(df_fat_display, use_container_width=True, hide_index=True)
+
+        except Exception as e_fat:
+            st.warning("⚠️ Não foi possível carregar a aba 'Out / 26' da Fatura C6. Verifique o compartilhamento da planilha.")
+
+        st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
+
+        # -------------------------------------------------------------
         # 8. INVESTIMENTOS
         # -------------------------------------------------------------
         st.markdown("<a id='investimentos'></a>", unsafe_allow_html=True)
@@ -564,7 +699,6 @@ try:
         </div>
         """, unsafe_allow_html=True)
 
-        # 🟢 APLICAÇÃO DA SUA IDEIA: Quebra o nome dos ativos em 2 linhas
         df_inv_ultimo["Categoria_Label"] = df_inv_ultimo["Categoria"].apply(quebrar_linha_nome)
         df_inv_ultimo["Texto_Valor"] = df_inv_ultimo["Valor"].apply(lambda v: f"R$ {v:,.2f}")
 
@@ -577,7 +711,6 @@ try:
             color_continuous_scale="Greens",
             text="Texto_Valor"
         )
-        # Reduzimos a margem esquerda (de 160 para 110) pois os textos em 2 linhas ocupam bem menos largura!
         fig_inv_bar.update_layout(
             plotly_theme["layout"], 
             coloraxis_showscale=False, 
