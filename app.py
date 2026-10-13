@@ -113,21 +113,7 @@ custom_css = """
         transition: all 0.25s ease;
     }
 
-    /* Estilo da Foto e Cabeçalho de Login Executivo */
-    .profile-img-container {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 15px;
-    }
-    .profile-img {
-        width: 130px;
-        height: 130px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 3px solid #3B82F6;
-        box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-    }
-
+    /* Ícone C6 Bank */
     .c6-logo-badge {
         display: inline-flex;
         align-items: center;
@@ -142,6 +128,14 @@ custom_css = """
         letter-spacing: -0.05em;
         vertical-align: middle;
         margin-right: 8px;
+    }
+
+    /* Foto de Perfil na Tela de Login */
+    [data-testid="stImage"] img {
+        border-radius: 50% !important;
+        border: 3px solid #3B82F6 !important;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.4) !important;
+        object-fit: cover !important;
     }
 
     @media (max-width: 768px) {
@@ -251,20 +245,14 @@ def check_password():
         st.session_state["password_correct"] = False
 
     if not st.session_state["password_correct"]:
-        col1, col2, col3 = st.columns([1, 1.8, 1])
+        col1, col2, col3 = st.columns([1, 1.6, 1])
         with col2:
-            st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
             
-            # Exibição da Foto (verifica se o arquivo eu.jpg existe localmente)
+            # Exibição da foto eu.jpg centralizada
             if os.path.exists("eu.jpg"):
-                st.markdown("""
-                <div class="profile-img-container">
-                    <img src="app/static/eu.jpg" class="profile-img" alt="Fabio Pelegrino">
-                </div>
-                """, unsafe_allow_html=True)
-                # Fallback Streamlit nativo caso estático não carregue
-                col_i1, col_i2, col_i3 = st.columns([1, 1.2, 1])
-                with col_i2:
+                c_img1, c_img2, c_img3 = st.columns([1, 1.2, 1])
+                with c_img2:
                     st.image("eu.jpg", use_container_width=True)
             
             st.markdown("<h2 style='text-align: center; color: #3B82F6; margin-bottom: 2px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
@@ -807,7 +795,7 @@ try:
                 st.dataframe(df_fat_display, use_container_width=True, hide_index=True)
 
         except Exception as e_fat:
-            st.warning("⚠️ Não foi possível carregar os dados da Fatura C6. Por favor, confirme se o compartilhamento da planilha está definido para 'Qualquer pessoa com el link'.")
+            st.warning("⚠️ Não foi possível carregar os dados da Fatura C6. Por favor, confirme se o compartilhamento da planilha está definido para 'Qualquer pessoa com o link'.")
 
         st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
 
@@ -1069,6 +1057,8 @@ try:
                 use_container_width=True,
                 hide_index=True
             )
+    else:
+        st.warning("⚠️ Selecione pelo menos um mês no filtro para visualizar os dados.")
 
 except Exception as e:
     st.error(f"Aba '{ano_selecionado}' não encontrada ou sem dados no Google Sheets.")
