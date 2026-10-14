@@ -1156,7 +1156,7 @@ try:
                 "🌐 Visão Consolidada (Carteira Toda)",
                 "🏛️ C6 - Tesouro IPCA+ 2050",
                 "🏛️ C6 - Tesouro 2035 (Juros Semestrais)",
-                "📈 C6 - MXRF11 (Reinvestimento de Dividendo)",
+                "📈 C6 - MXRF11 (Com Média de Aportes do Histórico)",
                 "🔒 C6 - CDB IPCA + 7,9% (Venc. 19/04/2027)",
                 "📱 Mercado Pago (120% CDI)"
             ]
@@ -1169,38 +1169,47 @@ try:
 
             # CARREGAMENTO E PROJEÇÃO DINÂMICA COM BASE NA PLANILHA REAL
             dados_grafico_proj = []
-            
-            ipca_estimado = 4.0  # Inflação anual estimada
             ano_corrente = 2026
 
             # A. TESOURO IPCA+ 2050
-            saldo_2050 = 0.0
-            aportes_2050 = 0.0
+            saldo_2050 = 15000.0
             try:
                 df_2050 = load_sheet_by_gid(SPREADSHEET_ID, "1265273668")
-                # Projeta crescimento acumulado
                 val_investido_2050 = pd.to_numeric(df_2050.iloc[:, 3].apply(parse_br_val), errors='coerce').sum()
-                saldo_2050 = val_investido_2050 if val_investido_2050 > 0 else 15000.0
+                if val_investido_2050 > 0:
+                    saldo_2050 = val_investido_2050
             except Exception:
-                saldo_2050 = 15000.0
+                pass
 
             # B. TESOURO 2035 JUROS SEMESTRAIS
-            saldo_2035 = 0.0
+            saldo_2035 = 12000.0
             try:
                 df_2035 = load_sheet_by_gid(SPREADSHEET_ID, "1832710448")
                 val_investido_2035 = pd.to_numeric(df_2035.iloc[:, 1].apply(parse_br_val), errors='coerce').sum()
-                saldo_2035 = val_investido_2035 if val_investido_2035 > 0 else 12000.0
+                if val_investido_2035 > 0:
+                    saldo_2035 = val_investido_2035
             except Exception:
-                saldo_2035 = 12000.0
+                pass
 
-            # C. MXRF11
-            cotas_mxrf = 0
+            # C. MXRF11 — CÁLCULO BASEADO NA MÉDIA DE APORTES REALIZADOS
+            cotas_mxrf = 500
+            media_aporte_mensal_mxrf = 300.0  # Média padrão caso falhe a leitura
+            
             try:
                 df_mxrf = load_sheet_by_gid(SPREADSHEET_ID, "1282765175")
-                cotas_mxrf = int(pd.to_numeric(df_mxrf.iloc[:, 1], errors='coerce').sum())
-                if cotas_mxrf <= 0: cotas_mxrf = 500
+                df_mxrf_clean = df_mxrf.dropna(how='all')
+                
+                # Leitura das cotas totais acumuladas na Coluna B
+                total_cotas_sheet = pd.to_numeric(df_mxrf_clean.iloc[:, 1], errors='coerce').sum()
+                if total_cotas_sheet > 0:
+                    cotas_mxrf = total_cotas_sheet
+                
+                # Leitura dos valores totais investidos na Coluna D para calcular a média por compra/mês
+                valores_aportados = pd.to_numeric(df_mxrf_clean.iloc[:, 3].apply(parse_br_val), errors='coerce').dropna()
+                if len(valores_aportados) > 0:
+                    media_aporte_mensal_mxrf = valores_aportados.mean()
             except Exception:
-                cotas_mxrf = 500
+                pass
 
             saldo_mxrf_inicial = cotas_mxrf * mxrf11_preco_num
 
@@ -1217,22 +1226,23 @@ try:
                 # Projeção IPCA 2050 (Taxa Média ~6.2% + IPCA 4.0% = 10.2% a.a.)
                 v_2050 = saldo_2050 * ((1 + 0.102) ** yrs_elapsed) + (yrs_elapsed * 12 * 300)
                 
-                # Projeção Tesouro 2035 (Cupons semestrais reinvestidos ~9.5% a.a., encerra em 2035)
+                # Projeção Tesouro 2035 (Sem novos aportes, vencimento em 2035)
                 if yr <= 2035:
                     v_2035 = saldo_2035 * ((1 + 0.095) ** yrs_elapsed)
                 else:
-                    v_2035 = saldo_2035 * ((1 + 0.095) ** (2035 - ano_corrente))  # Mantém resgatado
+                    v_2035 = saldo_2035 * ((1 + 0.095) ** (2035 - ano_corrente))
                 
-                # Projeção MXRF11 (Dividend Yield 11% a.a. + reinvestimento de cotas)
-                v_mxrf = saldo_mxrf_inicial * ((1 + 0.11) ** yrs_elapsed)
+                # PROJEÇÃO MXRF11: Saldo Inicial + (Média Mensal de Aportes x 12 meses x anos passados)
+                # Sem efeito bola de neve automático (as compras manuais continuam sendo lançadas na planilha)
+                v_mxrf = saldo_mxrf_inicial + (media_aporte_mensal_mxrf * 12 * yrs_elapsed)
                 
-                # Projeção CDB IPCA + 7.9% (Vence em 2027, taxa 11.9% a.a.)
+                # Projeção CDB IPCA + 7.9% (Vence em 2027)
                 if yr <= 2027:
                     v_cdb = saldo_cdb_ipca * ((1 + 0.119) ** yrs_elapsed)
                 else:
-                    v_cdb = saldo_cdb_ipca * ((1 + 0.119) ** (2027 - ano_corrente))  # Mantém após vencimento
+                    v_cdb = saldo_cdb_ipca * ((1 + 0.119) ** (2027 - ano_corrente))
                 
-                # Projeção Mercado Pago 120% CDI (CDI 10.65% * 1.20 = 12.78% a.a.)
+                # Projeção Mercado Pago 120% CDI
                 v_mp = saldo_mp * ((1 + (cdi_num * 1.20 / 100)) ** yrs_elapsed)
 
                 if "Consolidada" in ativo_proj_sel:
@@ -1260,7 +1270,12 @@ try:
                 v_final_proj = df_proj_display.iloc[-1]["Patrimônio Projetado"]
                 v_inicial_proj = df_proj_display.iloc[0]["Patrimônio Projetado"]
                 lucro_proj = v_final_proj - v_inicial_proj
-                renda_m_est = v_final_proj * 0.008  # Estimativa de 0.8% ao mês de renda passiva
+                
+                # Renda Passiva Estimada em MXRF11 (~0.9% ao mês em dividendos isentos)
+                if "MXRF11" in ativo_proj_sel:
+                    renda_m_est = v_final_proj * 0.009
+                else:
+                    renda_m_est = v_final_proj * 0.008
 
                 kp1, kp2, kp3, kp4 = st.columns(4)
                 with kp1:
@@ -1268,7 +1283,7 @@ try:
                 with kp2:
                     st.metric("Saldo Inicial (2026)", f"R$ {v_inicial_proj:,.2f}")
                 with kp3:
-                    st.metric("Crescimento Estimado", f"R$ {lucro_proj:+,.2f}", delta=f"+{((lucro_proj/v_inicial_proj)*100):.1f}%")
+                    st.metric("Crescimento Aportado/Acumulado", f"R$ {lucro_proj:+,.2f}", delta=f"+{((lucro_proj/v_inicial_proj)*100):.1f}%")
                 with kp4:
                     st.metric("Renda Passiva Mensal Est.", f"R$ {renda_m_est:,.2f}/mês")
 
