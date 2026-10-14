@@ -1142,27 +1142,101 @@ try:
         # --- 3. PROJEÇÕES PREDITIVAS ---
         with aba_ia3:
             st.markdown("##### 🔮 Simulação de Crescimento Preditivo da Carteira")
-            col_p1, col_p2 = st.columns(2)
-            with col_p1:
-                anos_proj = st.slider("Horizonte de Anos de Projeção:", 1, 24, 10)
-                aporte_m = st.number_input("Aporte Mensal Estimado (R$):", value=2000, step=500)
-            with col_p2:
-                taxa_aa = st.number_input("Taxa Média Anual Estimada (% a.a. acima da inflação):", value=6.5, step=0.5)
-                
-            meses_totais = anos_proj * 12
-            taxa_am = (1 + taxa_aa/100)**(1/12) - 1
+            st.caption("Projete a evolução do seu patrimônio com base no seu saldo atual e novos aportes mensais:")
+
+            col_p1, col_p2, col_p3 = st.columns([1.5, 1.5, 1.5])
             
-            saldo_sim = patrimonio_total_ultimo_mes
+            with col_p1:
+                anos_proj = st.slider("Horizonte de Anos (Tempo):", 1, 30, 10, help="Quantos anos deseja manter os aportes e investimentos?")
+            
+            with col_p2:
+                aporte_m = st.number_input("Aporte Mensal Estimado (R$):", value=1000, step=250, min_value=0)
+            
+            with col_p3:
+                perfil_taxa = st.selectbox(
+                    "Perfil de Rentabilidade (acima da inflação):",
+                    ["Conservador (5,0% a.a. - Tesouro IPCA+)", "Moderado (6,5% a.a. - Carteira Mista)", "Agressivo (8,0% a.a. - FIIs e Ações)"],
+                    index=1
+                )
+                
+                # Extrai a taxa do perfil selecionado
+                if "Conservador" in perfil_taxa:
+                    taxa_aa = 5.0
+                elif "Moderado" in perfil_taxa:
+                    taxa_aa = 6.5
+                else:
+                    taxa_aa = 8.0
+
+            # Cálculos da simulação
+            ano_atual = 2026
+            meses_totais = anos_proj * 12
+            taxa_am = (1 + taxa_aa / 100) ** (1 / 12) - 1
+            
+            saldo_inicial = patrimonio_total_ultimo_mes
+            saldo_sim = saldo_inicial
+            total_aportado = saldo_inicial
+            
             dados_sim = []
+            
             for m in range(1, meses_totais + 1):
                 saldo_sim = (saldo_sim + aporte_m) * (1 + taxa_am)
+                total_aportado += aporte_m
+                
                 if m % 12 == 0:
-                    dados_sim.append({"Ano": f"Ano {m//12}", "Patrimônio Estimado": saldo_sim})
+                    ano_alvo = ano_atual + (m // 12)
+                    juros_gerados = saldo_sim - total_aportado
+                    renda_mensal_est = saldo_sim * (taxa_aa / 100 / 12)
+                    
+                    dados_sim.append({
+                        "Ano": str(ano_alvo),
+                        "Patrimônio Total": saldo_sim,
+                        "Texto_Barra": f"R$ {saldo_sim:,.0f}".replace(",", "."),
+                        "Total Aportado": total_aportado,
+                        "Juros Compostos": juros_gerados,
+                        "Renda Mensal Est.": renda_mensal_est
+                    })
             
             df_sim = pd.DataFrame(dados_sim)
-            fig_sim = px.bar(df_sim, x="Ano", y="Patrimônio Estimado", text_auto=".2s", color="Patrimônio Estimado", color_continuous_scale="Purples")
-            fig_sim.update_layout(plotly_theme["layout"], height=320, coloraxis_showscale=False)
-            st.plotly_chart(fig_sim, use_container_width=True, config=plotly_config)
+            
+            if not df_sim.empty:
+                patrimonio_final = df_sim.iloc[-1]["Patrimônio Total"]
+                total_investido_final = df_sim.iloc[-1]["Total Aportado"]
+                juros_finais = df_sim.iloc[-1]["Juros Compostos"]
+                renda_mensal_final = df_sim.iloc[-1]["Renda Mensal Est."]
+                ano_final = df_sim.iloc[-1]["Ano"]
+
+                # Cards com resumo claro
+                k_p1, k_p2, k_p3, k_p4 = st.columns(4)
+                with k_p1:
+                    st.metric("Patrimônio em " + ano_final, f"R$ {patrimonio_final:,.2f}")
+                with k_p2:
+                    st.metric("Total Aportado pelo Bolso", f"R$ {total_investido_final:,.2f}")
+                with k_p3:
+                    st.metric("Ganho em Juros Compostos", f"R$ {juros_finais:,.2f}", delta=f"+{((juros_finais/total_investido_final)*100):.1f}%")
+                with k_p4:
+                    st.metric("Renda Mensal Estimada", f"R$ {renda_mensal_final:,.2f}/mês")
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # Gráfico com os Anos Reais no Eixo X
+                fig_sim = px.bar(
+                    df_sim, 
+                    x="Ano", 
+                    y="Patrimônio Total", 
+                    text="Texto_Barra",
+                    color="Patrimônio Total", 
+                    color_continuous_scale="Purples",
+                    title=f"📈 Projeção do Patrimônio de {ano_atual + 1} até {ano_final}"
+                )
+                fig_sim.update_layout(
+                    plotly_theme["layout"], 
+                    height=380, 
+                    coloraxis_showscale=False,
+                    margin=dict(l=20, r=20, t=40, b=20)
+                )
+                fig_sim.update_traces(textposition="outside", textfont=dict(size=11, color="#E5E7EB"))
+                fig_sim.update_yaxes(tickprefix="R$ ", tickformat="~s")
+                st.plotly_chart(fig_sim, use_container_width=True, config=plotly_config)
 
         # --- 4. DETECTOR DE ANOMALIAS ---
         with aba_ia4:
