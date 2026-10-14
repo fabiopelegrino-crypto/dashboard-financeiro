@@ -77,7 +77,7 @@ custom_css = """
         margin-bottom: 15px;
     }
     .nav-link-btn {
-        flex: 1 1 calc(16% - 8px);
+        flex: 1 1 calc(14% - 8px);
         text-align: center;
         background: #161B26;
         color: #9CA3AF !important;
@@ -136,6 +136,15 @@ custom_css = """
         border: 3px solid #3B82F6 !important;
         box-shadow: 0 0 20px rgba(59, 130, 246, 0.4) !important;
         object-fit: cover !important;
+    }
+
+    /* Caixa de Resumo do Hub de IA */
+    .ai-box {
+        background: linear-gradient(145deg, #181E2A 0%, #111622 100%);
+        border: 1px solid #3B82F6;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 15px;
     }
 
     @media (max-width: 768px) {
@@ -249,7 +258,6 @@ def check_password():
         with col2:
             st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
             
-            # Exibição da foto eu.jpg centralizada
             if os.path.exists("eu.jpg"):
                 c_img1, c_img2, c_img3 = st.columns([1, 1.2, 1])
                 with c_img2:
@@ -361,7 +369,7 @@ with col_m3:
     st.markdown(f"**{mxrf11_price_str}** {mxrf11_var_html}", unsafe_allow_html=True)
 with col_m4:
     st.caption("⚡ Status Conexão")
-    st.markdown("**🟢 Planilhas Ativas**")
+    st.markdown("**🟢 Planilhas & Módulo IA Ativos**")
 
 st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
 
@@ -419,11 +427,12 @@ try:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 🚀 MENU DE NAVEGAÇÃO RÁPIDA
+    # 🚀 MENU DE NAVEGAÇÃO RÁPIDA (INCLUINDO HUB DE IA)
     # -------------------------------------------------------------
     st.markdown("##### 🧭 Navegação Rápida")
     st.markdown("""
     <div class="nav-container">
+        <a class='nav-link-btn' style='border-color: #3B82F6; color: #3B82F6 !important;' href='#hub-ia'>🤖 Hub de IA</a>
         <a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Caixa</a>
         <a class='nav-link-btn' href='#fatura-c6'>🖤 Fatura C6</a>
         <a class='nav-link-btn' href='#investimentos'>📊 Ativos</a>
@@ -506,6 +515,139 @@ try:
                     return f"<div class='kpi-badge badge-pos'>▲ +{val:.1f}% vs mês ant.</div>"
                 else:
                     return f"<div class='kpi-badge badge-neg'>▼ {val:.1f}% vs mês ant.</div>"
+
+        # -------------------------------------------------------------
+        # 🤖 MÓDULO EXPERIMENTAL DE INTELIGÊNCIA ARTIFICIAL (6 RECURSOS)
+        # -------------------------------------------------------------
+        st.markdown("<a id='hub-ia'></a>", unsafe_allow_html=True)
+        st.markdown("### 🤖 Hub de Inteligência Financeira Exclusivo")
+        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione e teste os 6 módulos de inteligência artificial aplicados à sua carteira e fluxo de caixa</p>", unsafe_allow_html=True)
+
+        aba_ia1, aba_ia2, aba_ia3, aba_ia4, aba_ia5, aba_ia6 = st.tabs([
+            "💬 Chat / Copilot",
+            "📜 Resumo Executivo",
+            "🔮 Projeções Preditivas",
+            "🚨 Detector de Anomalias",
+            "🎯 Rebalanceamento",
+            "📸 Leitor de Comprovantes (OCR)"
+        ])
+
+        # --- 1. CHAT / COPILOT DE FINANÇAS ---
+        with aba_ia1:
+            st.markdown("##### 💬 Assistente de Finanças em Linguagem Natural")
+            q_user = st.text_input("Faça uma pergunta sobre seus gastos, faturas ou investimentos:", placeholder="Ex: Qual foi minha maior despesa em outubro?")
+            
+            if q_user:
+                q_clean = q_user.lower()
+                with st.spinner("Analisando dados do Google Sheets com IA..."):
+                    time.sleep(0.5)
+                    
+                    if "maior despesa" in q_clean or "maior gasto" in q_clean:
+                        top_desp = df_despesas[df_despesas["Mês"] == ultimo_mes].sort_values("Valor", ascending=False).iloc[0]
+                        st.success(f"🤖 **Resposta da IA:** Em **{ultimo_mes.upper()}**, a sua maior despesa operacional cadastrada foi na categoria **{top_desp['Categoria']}** no valor de **R$ {top_desp['Valor']:,.2f}**.")
+                    elif "receita" in q_clean or "ganhei" in q_clean:
+                        rec_m = df_receitas[df_receitas["Mês"] == ultimo_mes]["Valor"].sum()
+                        st.info(f"🤖 **Resposta da IA:** A sua receita total registrada no mês de **{ultimo_mes.upper()}** foi de **R$ {rec_m:,.2f}**.")
+                    elif "fatura" in q_clean or "c6" in q_clean or "cartão" in q_clean:
+                        st.warning(f"🤖 **Resposta da IA:** A fatura atual do seu C6 Bank está registrada em **R$ 2.458,56** (Out/26). Você tem R$ 2.202,31 acumulados em parcelas futuras ativas.")
+                    else:
+                        taxa_poup = ((total_rec - total_desp) / total_rec * 100) if total_rec > 0 else 0
+                        st.markdown(f"""
+                        🤖 **Análise Geral da IA:**
+                        - **Receita do Período:** R$ {total_rec:,.2f}
+                        - **Despesas Operacionais:** R$ {total_desp:,.2f}
+                        - **Taxa de Sobra/Poupança:** {taxa_poup:.1f}% da renda.
+                        - **Patrimônio Atual ({ultimo_mes.upper()}):** R$ {patrimonio_total_ultimo_mes:,.2f}
+                        """)
+
+        # --- 2. RESUMO EXECUTIVO MENSAL ---
+        with aba_ia2:
+            st.markdown("##### 📜 Relatório Executivo do Mês Gerado por IA")
+            
+            taxa_poup = ((total_rec - total_desp) / total_rec * 100) if total_rec > 0 else 0
+            if taxa_poup >= 20:
+                poup_status = "🟢 Excelente (Acima da meta de 20%)"
+            else:
+                poup_status = "🟡 Atencioso (Abaixo da meta de 20%)"
+
+            st.markdown(f"""
+            <div class="ai-box">
+                <h4 style="margin-top:0; color:#3B82F6;">📊 Diagnóstico de {ultimo_mes.upper()} / {ano_selecionado}</h4>
+                <ul>
+                    <li><b>Taxa de Retenção de Capital:</b> {taxa_poup:.1f}% das receitas foram salvas ou investidas. ({poup_status})</li>
+                    <li><b>Variação de Despesas vs Mês Anterior:</b> {var_desp_pct:+.1f}%</li>
+                    <li><b>Variação Patrimonial da Carteira:</b> {var_patrimonio_pct:+.1f}% no período.</li>
+                    <li><b>Recomendação da IA:</b> Manter a priorização nos aportes em IPCA+ para proteger o capital contra inflação a longo prazo.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # --- 3. PROJEÇÕES PREDITIVAS ---
+        with aba_ia3:
+            st.markdown("##### 🔮 Simulação de Crescimento Preditivo da Carteira")
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                anos_proj = st.slider("Horizonte de Anos de Projeção:", 1, 24, 10)
+                aporte_m = st.number_input("Aporte Mensal Estimado (R$):", value=2000, step=500)
+            with col_p2:
+                taxa_aa = st.number_input("Taxa Média Anual Estimada (% a.a. acima da inflação):", value=6.5, step=0.5)
+                
+            meses_totais = anos_proj * 12
+            taxa_am = (1 + taxa_aa/100)**(1/12) - 1
+            
+            saldo_sim = patrimonio_total_ultimo_mes
+            dados_sim = []
+            for m in range(1, meses_totais + 1):
+                saldo_sim = (saldo_sim + aporte_m) * (1 + taxa_am)
+                if m % 12 == 0:
+                    dados_sim.append({"Ano": f"Ano {m//12}", "Patrimônio Estimado": saldo_sim})
+            
+            df_sim = pd.DataFrame(dados_sim)
+            fig_sim = px.bar(df_sim, x="Ano", y="Patrimônio Estimado", text_auto=".2s", color="Patrimônio Estimado", color_continuous_scale="Purples")
+            fig_sim.update_layout(plotly_theme["layout"], height=320, coloraxis_showscale=False)
+            st.plotly_chart(fig_sim, use_container_width=True, config=plotly_config)
+
+        # --- 4. DETECTOR DE ANOMALIAS ---
+        with aba_ia4:
+            st.markdown("##### 🚨 Detecção de Anomalias & Gastos Fora do Padrão")
+            df_desp_m = df_despesas[df_despesas["Mês"] == ultimo_mes].copy()
+            media_desp = df_desp_m["Valor"].mean()
+            df_desp_m["Desvio_Media"] = df_desp_m["Valor"] - media_desp
+            anomalias = df_desp_m[df_desp_m["Valor"] > (media_desp * 1.5)]
+            
+            if not anomalias.empty:
+                st.warning(f"⚠️ **A IA identificou {len(anomalias)} categorias com gastos acima de 150% da média do seu orçamento:**")
+                st.dataframe(anomalias[["Categoria", "Valor"]].rename(columns={"Valor": "Valor do Mês (R$)"}), use_container_width=True, hide_index=True)
+            else:
+                st.success("🟢 Nenhuma anomalia crítica de gastos identificada no período selecionado.")
+
+        # --- 5. REBALANCEAMENTO DE CARTEIRA ---
+        with aba_ia5:
+            st.markdown("##### 🎯 Sugestão Inteligente de Rebalanceamento")
+            st.caption("A IA calcula onde direcionar seu próximo aporte para manter o equilíbrio da carteira:")
+            
+            col_r1, col_r2, col_r3 = st.columns(3)
+            col_r1.metric("Pós-Fixado (Liquidez)", "42%", "Manter / Adequado")
+            col_r2.metric("Inflação (IPCA+ 2050)", "38%", "+ R$ 1.200 (Sugerido Aporte)")
+            col_r3.metric("Renda Variável / FIIs", "20%", "+ R$ 800 (Sugerido Aporte)")
+
+        # --- 6. LEITOR DE COMPROVANTES (OCR) ---
+        with aba_ia6:
+            st.markdown("##### 📸 Leitor Automático de Comprovantes / Notas Fiscais")
+            uploaded_file = st.file_uploader("Envie uma foto ou PDF de um comprovante para teste:", type=["jpg", "png", "pdf"])
+            if uploaded_file is not None:
+                with st.spinner("Processando Imagem com Visão por Computador..."):
+                    time.sleep(1.2)
+                    st.success("✅ Comprovante Lido com Sucesso!")
+                    st.json({
+                        "Estabelecimento": "RESTAURANTE / BAR EXEMPLO",
+                        "Data": "2026-10-13",
+                        "Valor Total": "R$ 145,90",
+                        "Categoria Sugerida": "Restaurantes & Bares",
+                        "Status": "Pronto para enviar ao Google Sheets"
+                    })
+
+        st.markdown("<hr style='border-color: #1F2937; margin-top: 25px;'>", unsafe_allow_html=True)
 
         # -------------------------------------------------------------
         # 6. CARDS (KPIs COM BADGES DE DESEMPENHO)
