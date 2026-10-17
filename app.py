@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import time
 import requests
 import yfinance as yf
@@ -8,7 +9,7 @@ import urllib.parse
 import os
 
 # -------------------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM RESPONSIVO (CSS)
+# 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM EXECUTIVE
 # -------------------------------------------------------------
 st.set_page_config(
     page_title="Finances AI | Fabio Pelegrino", 
@@ -17,167 +18,148 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS com Suporte a Telas Móveis
-custom_css = """
+executive_css = """
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
-    .stApp {
-        background-color: #0B0E14;
-        font-family: 'Inter', sans-serif;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif !important;
     }
+    
+    .stApp {
+        background-color: #0D1117;
+        color: #C9D1D9;
+    }
+    
+    /* Executive Card Glassmorphism */
     .kpi-card {
-        background: linear-gradient(145deg, #161B26 0%, #0F131C 100%);
-        border: 1px solid #232D3F;
-        border-radius: 14px;
-        padding: 16px 18px;
-        box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.5);
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-        margin-bottom: 10px;
+        background: linear-gradient(135deg, rgba(22, 27, 34, 0.9) 0%, rgba(13, 17, 23, 0.95) 100%);
+        border: 1px solid #30363D;
+        border-radius: 12px;
+        padding: 18px 20px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+        margin-bottom: 12px;
+    }
+    .kpi-card:hover {
+        border-color: #58A6FF;
+        transform: translateY(-2px);
     }
     .kpi-title {
-        color: #9CA3AF;
-        font-size: 0.75rem;
+        color: #8B949E;
+        font-size: 0.72rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         margin-bottom: 6px;
     }
     .kpi-value {
-        font-size: 1.5rem;
+        font-size: 1.65rem;
         font-weight: 800;
         letter-spacing: -0.03em;
-        line-height: 1.2;
+        line-height: 1.25;
     }
     .kpi-badge {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 2px 7px;
+        padding: 3px 8px;
         border-radius: 20px;
-        font-size: 0.70rem;
+        font-size: 0.72rem;
         font-weight: 600;
-        margin-top: 6px;
+        margin-top: 8px;
     }
-    .badge-pos { background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-neg { background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-    .badge-neu { background: rgba(107, 114, 128, 0.15); color: #9CA3AF; border: 1px solid rgba(107, 114, 128, 0.3); }
+    .badge-pos { background: rgba(46, 160, 67, 0.15); color: #3FB950; border: 1px solid rgba(46, 160, 67, 0.3); }
+    .badge-neg { background: rgba(248, 81, 73, 0.15); color: #F85149; border: 1px solid rgba(248, 81, 73, 0.3); }
+    .badge-neu { background: rgba(139, 148, 158, 0.15); color: #8B949E; border: 1px solid rgba(139, 148, 158, 0.3); }
 
-    .val-green { color: #10B981; }
-    .val-red { color: #EF4444; }
-    .val-blue { color: #3B82F6; }
-    .val-purple { color: #A855F7; }
+    .val-green { color: #3FB950; }
+    .val-red { color: #F85149; }
+    .val-blue { color: #58A6FF; }
+    .val-purple { color: #A371F7; }
 
-    .nav-container {
-        display: flex;
+    /* Estilização de Tabs Corporativas */
+    .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 15px;
+        background-color: #161B22;
+        padding: 6px;
+        border-radius: 10px;
+        border: 1px solid #30363D;
     }
-    .nav-link-btn {
-        flex: 1 1 calc(13% - 8px);
-        text-align: center;
-        background: #161B26;
-        color: #9CA3AF !important;
-        padding: 8px 10px;
+    .stTabs [data-baseweb="tab"] {
+        height: 42px;
         border-radius: 8px;
-        text-decoration: none !important;
-        font-size: 0.80rem;
+        color: #8B949E;
         font-weight: 600;
-        border: 1px solid #232D3F;
-        transition: all 0.2s ease;
-        white-space: nowrap;
+        font-size: 0.88rem;
+        padding: 0 16px;
+        border: none !important;
+        background-color: transparent;
     }
-    .nav-link-btn:hover {
-        background-color: #1F2937;
-        color: #3B82F6 !important;
-        border-color: #3B82F6;
-    }
-
-    .back-to-top-btn {
-        position: fixed;
-        bottom: 20px;
-        left: 15px;
-        z-index: 9999;
-        background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
-        color: #3B82F6 !important;
-        border: 1px solid #3B82F6;
-        border-radius: 50px;
-        padding: 8px 14px;
-        font-size: 0.78rem;
-        font-weight: 700;
-        text-decoration: none !important;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
-        transition: all 0.25s ease;
+    .stTabs [aria-selected="true"] {
+        background-color: #21262D !important;
+        color: #58A6FF !important;
+        border: 1px solid #30363D !important;
     }
 
     .c6-logo-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background-color: #111;
+        background-color: #000;
         color: #FFF;
         font-weight: 900;
         font-size: 0.85rem;
         padding: 3px 8px;
         border-radius: 6px;
-        border: 1px solid #333;
+        border: 1px solid #30363D;
         letter-spacing: -0.05em;
-        vertical-align: middle;
         margin-right: 8px;
     }
 
     [data-testid="stImage"] img {
         border-radius: 50% !important;
-        border: 3px solid #3B82F6 !important;
-        box-shadow: 0 0 20px rgba(59, 130, 246, 0.4) !important;
+        border: 2px solid #58A6FF !important;
+        box-shadow: 0 0 15px rgba(88, 166, 255, 0.3) !important;
         object-fit: cover !important;
     }
 
     .ai-box {
-        background: linear-gradient(145deg, #181E2A 0%, #111622 100%);
-        border: 1px solid #3B82F6;
+        background: linear-gradient(135deg, rgba(22, 27, 34, 0.9) 0%, rgba(13, 17, 23, 0.95) 100%);
+        border: 1px solid #58A6FF;
         border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
     }
 
     @media (max-width: 768px) {
-        .nav-link-btn {
-            flex: 1 1 calc(33% - 8px);
-            font-size: 0.75rem;
-            padding: 8px 6px;
-        }
-        .kpi-value {
-            font-size: 1.35rem;
-        }
-        .kpi-card {
-            padding: 14px 14px;
-        }
-        h2 {
-            font-size: 1.4rem !important;
-        }
-        h3 {
-            font-size: 1.2rem !important;
-        }
+        .kpi-value { font-size: 1.35rem; }
+        .kpi-card { padding: 14px; }
     }
 
     [data-testid="stSidebar"] {
-        background-color: #0F131C;
-        border-right: 1px solid #1F2937;
+        background-color: #161B22;
+        border-right: 1px solid #30363D;
     }
     
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 </style>
 """
-st.markdown(custom_css, unsafe_allow_html=True)
+st.markdown(executive_css, unsafe_allow_html=True)
 
-plotly_config = {
-    'displayModeBar': False, 
-    'responsive': True
+plotly_config = {'displayModeBar': False, 'responsive': True}
+
+plotly_theme = {
+    "layout": {
+        "paper_bgcolor": "rgba(0,0,0,0)",
+        "plot_bgcolor": "rgba(0,0,0,0)",
+        "font": {"color": "#C9D1D9", "family": "Inter"},
+        "xaxis": {"gridcolor": "#21262D", "zerolinecolor": "#21262D"},
+        "yaxis": {"gridcolor": "#21262D", "zerolinecolor": "#21262D"}
+    }
 }
 
 def simplificar_categoria_fatura(cat_orig):
@@ -228,7 +210,7 @@ def quebrar_linha_nome(texto, max_chars=18):
     return "<br>".join([" ".join(palavras[:meio]), " ".join(palavras[meio:])])
 
 # -------------------------------------------------------------
-# 1.1 MECANISMO DE LOGIN PERSONALIZADO COM FOTO E NOME
+# 1.1 AUTENTICAÇÃO SEGURA COM IDENTIDADE VISUAL
 # -------------------------------------------------------------
 def check_password():
     MAX_TENTATIVAS = 3
@@ -241,7 +223,7 @@ def check_password():
     if st.session_state["login_attempts"] >= MAX_TENTATIVAS:
         remaining_time = int(300 - (time.time() - st.session_state["lockout_time"]))
         if remaining_time > 0:
-            st.markdown("<h2 style='text-align: center; color: #EF4444;'>🚫 Acesso Bloqueado</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: #F85149;'>🚫 Acesso Bloqueado</h2>", unsafe_allow_html=True)
             st.error(f"Muitas tentativas. Aguarde {remaining_time}s.")
             return False
         else:
@@ -251,21 +233,21 @@ def check_password():
         st.session_state["password_correct"] = False
 
     if not st.session_state["password_correct"]:
-        col1, col2, col3 = st.columns([1, 1.6, 1])
+        col1, col2, col3 = st.columns([1, 1.5, 1])
         with col2:
-            st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
             
             if os.path.exists("eu.jpg"):
-                c_img1, c_img2, c_img3 = st.columns([1, 1.2, 1])
+                c_img1, c_img2, c_img3 = st.columns([1, 1.1, 1])
                 with c_img2:
                     st.image("eu.jpg", use_container_width=True)
             
-            st.markdown("<h2 style='text-align: center; color: #3B82F6; margin-bottom: 2px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #9CA3AF; font-size: 0.95rem; font-weight: 600; margin-bottom: 20px;'>Acesso Exclusivo | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: #58A6FF; margin-bottom: 2px; font-weight:800;'>💎 Wealth Management</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #8B949E; font-size: 0.90rem; font-weight: 500; margin-bottom: 25px;'>Painel Executivo de Gestão Patrimonial | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
 
             with st.form("login_form"):
-                password_input = st.text_input("Senha de acesso:", type="password", placeholder="Digite sua senha...")
-                submit_button = st.form_submit_button("🔑 Acessar Painel", use_container_width=True)
+                password_input = st.text_input("Senha de acesso:", type="password", placeholder="Digite sua credencial...")
+                submit_button = st.form_submit_button("🔑 Acessar Terminal", use_container_width=True)
 
                 if submit_button:
                     try:
@@ -286,7 +268,7 @@ def check_password():
                         else:
                             tentativas_restantes = MAX_TENTATIVAS - st.session_state["login_attempts"]
                             st.toast(f"⚠️ Senha incorreta! Tentativas: {tentativas_restantes}", icon="🚨")
-                            st.error(f"😕 Senha incorreta. Tentativas restantes: {tentativas_restantes}")
+                            st.error(f"😕 Credencial incorreta. Tentativas restantes: {tentativas_restantes}")
         return False
     return True
 
@@ -294,7 +276,7 @@ if not check_password():
     st.stop()
 
 # -------------------------------------------------------------
-# 1.2 CONSULTA DA API DO BANCO CENTRAL & COTAÇÃO DO MXRF11
+# 1.2 INDICADORES DE MERCADO FINANCEIRO (BCB & B3)
 # -------------------------------------------------------------
 @st.cache_data(ttl=1800)
 def fetch_market_indicators():
@@ -326,20 +308,20 @@ def fetch_market_indicators():
         mxrf_str = f"R$ {last_price:.2f}"
         
         if diff_abs >= 0:
-            var_html = f"<span style='color: #10B981; font-weight: 600; font-size: 0.80rem;'>+{diff_abs:.2f} (+{diff_pct:.2f}%)</span>"
+            var_html = f"<span style='color: #3FB950; font-weight: 600; font-size: 0.78rem;'>+{diff_abs:.2f} (+{diff_pct:.2f}%)</span>"
         else:
-            var_html = f"<span style='color: #EF4444; font-weight: 600; font-size: 0.80rem;'>{diff_abs:.2f} ({diff_pct:.2f}%)</span>"
+            var_html = f"<span style='color: #F85149; font-weight: 600; font-size: 0.78rem;'>{diff_abs:.2f} ({diff_pct:.2f}%)</span>"
     except Exception:
         last_price = 9.45
         mxrf_str = "R$ 9.45"
-        var_html = "<span style='color: #10B981; font-weight: 600; font-size: 0.80rem;'>+0.10 (+1.07%)</span>"
+        var_html = "<span style='color: #3FB950; font-weight: 600; font-size: 0.78rem;'>+0.10 (+1.07%)</span>"
 
     return selic_str, cdi_str, mxrf_str, var_html, cdi_val, last_price
 
 selic_str, cdi_str, mxrf11_price_str, mxrf11_var_html, cdi_num, mxrf11_preco_num = fetch_market_indicators()
 
 # -------------------------------------------------------------
-# 2. CARREGAMENTO DOS DADOS DO GOOGLE SHEETS
+# 2. CONEXÃO COM GOOGLE SHEETS
 # -------------------------------------------------------------
 try:
     SPREADSHEET_ID = st.secrets.get("SPREADSHEET_ID", "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4")
@@ -348,50 +330,36 @@ except Exception:
     SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
     FATURA_SHEET_ID = "1PUXXGAfn8dmqqR1qCcrJMMF32wUGng_MHpQ7-5GSbOY"
 
-# FUNÇÃO AUXILIAR PARA CARREGAR ABAS ESPECÍFICAS VIA GID
 @st.cache_data(ttl=300)
 def load_sheet_by_gid(spreadsheet_id, gid):
     url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/gviz/tq?tqx=out:csv&gid={gid}"
     return pd.read_csv(url)
 
-st.markdown("<a id='topo'></a>", unsafe_allow_html=True)
-st.markdown("<a href='#topo' class='back-to-top-btn'>⬆️ Topo</a>", unsafe_allow_html=True)
+# -------------------------------------------------------------
+# 3. HEADER EXECUTIVE & BENCHMARKS DE MERCADO
+# -------------------------------------------------------------
+st.markdown("<h2 style='margin-bottom: 0px; font-weight: 800; color: #F0F6FC;'>💎 Terminal Financeiro & Patrimonial</h2>", unsafe_allow_html=True)
+st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 15px;'>Visão Consolidada de Ativos, DRE, Cartão de Crédito e Mercado | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
+
+m1, m2, m3, m4 = st.columns(4)
+m1.caption("🏛️ Meta Selic (BCB)")
+m1.markdown(f"**{selic_str}**")
+m2.caption("📉 Taxa CDI Ref.")
+m2.markdown(f"**{cdi_str}**")
+m3.caption("🏢 Cotação MXRF11 (B3)")
+m3.markdown(f"**{mxrf11_price_str}** {mxrf11_var_html}", unsafe_allow_html=True)
+m4.caption("⚡ Status dos Motores")
+m4.markdown("**🟢 Conectado ao Google Sheets**")
+
+st.markdown("<hr style='border-color: #21262D; margin-top: 12px; margin-bottom: 18px;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 3. HEADER DO DASHBOARD & BENCHMARKS MACRO
+# 🎛️ FILTROS PRINCIPAIS
 # -------------------------------------------------------------
-st.markdown("<h2 style='margin-bottom: 0px;'>💎 Gestão Financeira & Patrimonial</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 12px;'>Visão executiva de fluxo de caixa, alocação, cartão de crédito e mercado | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
-
-col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-with col_m1:
-    st.caption("🏛️ Meta Selic (BCB)")
-    st.markdown(f"**{selic_str}**")
-with col_m2:
-    st.caption("📉 CDI Estimado")
-    st.markdown(f"**{cdi_str}**")
-with col_m3:
-    st.caption("🏢 MXRF11 (B3)")
-    st.markdown(f"**{mxrf11_price_str}** {mxrf11_var_html}", unsafe_allow_html=True)
-with col_m4:
-    st.caption("⚡ Status Conexão")
-    st.markdown("**🟢 Planilhas & IA Ativos**")
-
-st.markdown("<hr style='border-color: #1F2937; margin-top: 10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
-
-# -------------------------------------------------------------
-# 🎛️ PAINEL DE FILTROS DE PERÍODO (ANO & MESES)
-# -------------------------------------------------------------
-st.markdown("##### 🔍 Filtros do Período de Análise")
-f_col1, f_col2, f_col3 = st.columns([1, 2.5, 1])
+f_col1, f_col2, f_col3 = st.columns([1, 2.5, 0.8])
 
 with f_col1:
-    ano_selecionado = st.selectbox(
-        "Ano de Referência", 
-        ["2025", "2026", "2027"], 
-        index=1,
-        key="main_ano"
-    )
+    ano_selecionado = st.selectbox("Ano Fiscal", ["2025", "2026", "2027"], index=1, key="main_ano")
 
 SHEET_NAME = ano_selecionado
 csv_url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet={SHEET_NAME}"
@@ -402,7 +370,6 @@ def load_data(url):
 
 try:
     df_raw = load_data(csv_url)
-    
     df_raw.rename(columns={df_raw.columns[0]: "Categoria"}, inplace=True)
     df_raw["Categoria"] = df_raw["Categoria"].astype(str).str.strip()
     
@@ -411,7 +378,7 @@ try:
     
     with f_col2:
         mes_selecionado = st.multiselect(
-            "Meses Selecionados", 
+            "Período em Análise", 
             meses, 
             default=[m for m in meses if m in ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out']],
             key="main_meses"
@@ -419,39 +386,21 @@ try:
 
     with f_col3:
         st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
-        if st.button("🔄 Atualizar", use_container_width=True):
+        if st.button("🔄 Recarregar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
 
     # Sidebar compacta
-    st.sidebar.markdown("### ⚙️ Painel")
-    st.sidebar.info(f"👤 **Fabio Pelegrino**\n📅 **Ano:** {ano_selecionado}")
-    if st.sidebar.button("🔒 Sair", use_container_width=True):
+    st.sidebar.markdown("### ⚙️ Terminal")
+    st.sidebar.info(f"👤 **Fabio Pelegrino**\n📅 **Ano Fiscal:** {ano_selecionado}")
+    if st.sidebar.button("🔒 Encerrar Sessão", use_container_width=True):
         st.session_state["password_correct"] = False
         st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 🚀 MENU DE NAVEGAÇÃO RÁPIDA (COM HUB DE IA AO FINAL)
-    # -------------------------------------------------------------
-    st.markdown("##### 🧭 Navegação Rápida")
-    st.markdown("""
-    <div class="nav-container">
-        <a class='nav-link-btn' href='#fluxo-de-caixa'>💳 Caixa</a>
-        <a class='nav-link-btn' href='#fatura-c6'>🖤 Fatura C6</a>
-        <a class='nav-link-btn' href='#investimentos'>📊 Ativos</a>
-        <a class='nav-link-btn' href='#lucro-prejuizo'>💵 Lucro</a>
-        <a class='nav-link-btn' href='#raio-x'>🔍 Raio-X</a>
-        <a class='nav-link-btn' href='#diversificacao'>🍩 Alocação</a>
-        <a class='nav-link-btn' style='border-color: #3B82F6; color: #3B82F6 !important;' href='#hub-ia'>🤖 Hub de IA</a>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # -------------------------------------------------------------
-    # 4. PROCESSAMENTO DAS REGRAS FINANCEIRAS
+    # 4. TRATAMENTO DOS DADOS FINANCEIROS
     # -------------------------------------------------------------
     if mes_selecionado:
         mes_selecionado = [m for m in meses_ordem_cronologica if m in mes_selecionado]
@@ -495,7 +444,6 @@ try:
 
         if len(mes_selecionado) > 1:
             mes_penultimo = mes_selecionado[-2]
-            
             patrimonio_penultimo = df_carteira_investimentos[df_carteira_investimentos["Mês"] == mes_penultimo]["Valor"].sum()
             rec_ultimo = df_receitas[df_receitas["Mês"] == ultimo_mes]["Valor"].sum()
             rec_penultimo = df_receitas[df_receitas["Mês"] == mes_penultimo]["Valor"].sum()
@@ -513,24 +461,24 @@ try:
                 return "<div class='kpi-badge badge-neu'>• Estável</div>"
             if is_expense:
                 if val > 0:
-                    return f"<div class='kpi-badge badge-neg'>▲ +{val:.1f}% vs mês ant.</div>"
+                    return f"<div class='kpi-badge badge-neg'>▲ +{val:.1f}% MoM</div>"
                 else:
-                    return f"<div class='kpi-badge badge-pos'>▼ {val:.1f}% vs mês ant.</div>"
+                    return f"<div class='kpi-badge badge-pos'>▼ {val:.1f}% MoM</div>"
             else:
                 if val > 0:
-                    return f"<div class='kpi-badge badge-pos'>▲ +{val:.1f}% vs mês ant.</div>"
+                    return f"<div class='kpi-badge badge-pos'>▲ +{val:.1f}% MoM</div>"
                 else:
-                    return f"<div class='kpi-badge badge-neg'>▼ {val:.1f}% vs mês ant.</div>"
+                    return f"<div class='kpi-badge badge-neg'>▼ {val:.1f}% MoM</div>"
 
         # -------------------------------------------------------------
-        # 6. CARDS (KPIs COM BADGES DE DESEMPENHO)
+        # 5. CARDS DE KPIS EXECUTIVOS
         # -------------------------------------------------------------
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         
         with kpi1:
             st.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-title">Receita Total</div>
+                <div class="kpi-title">Receita Acumulada</div>
                 <div class="kpi-value val-green">R$ {total_rec:,.2f}</div>
                 {get_badge_html(var_rec_pct)}
             </div>
@@ -548,16 +496,16 @@ try:
         with kpi3:
             st.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-title">Saldo Investido (Mês)</div>
+                <div class="kpi-title">Aportes no Período</div>
                 <div class="kpi-value val-blue">R$ {total_investido_mes:,.2f}</div>
-                <div class="kpi-badge badge-neu">Aportes do Período</div>
+                <div class="kpi-badge badge-neu">Investimento Líquido</div>
             </div>
             """, unsafe_allow_html=True)
 
         with kpi4:
             st.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-title">Carteira Total ({ultimo_mes.upper()})</div>
+                <div class="kpi-title">Patrimônio ({ultimo_mes.upper()})</div>
                 <div class="kpi-value val-purple">R$ {patrimonio_total_ultimo_mes:,.2f}</div>
                 {get_badge_html(var_patrimonio_pct)}
             </div>
@@ -565,854 +513,615 @@ try:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        plotly_theme = {
-            "layout": {
-                "paper_bgcolor": "rgba(0,0,0,0)",
-                "plot_bgcolor": "rgba(0,0,0,0)",
-                "font": {"color": "#E5E7EB", "family": "Inter"},
-                "xaxis": {"gridcolor": "#1F2937", "zerolinecolor": "#1F2937"},
-                "yaxis": {"gridcolor": "#1F2937", "zerolinecolor": "#1F2937"}
-            }
-        }
-
         # -------------------------------------------------------------
-        # 7. FLUXO DE CAIXA
+        # 🚀 ESTRUTURA PRINCIPAL EM TABS CORPORATIVAS
         # -------------------------------------------------------------
-        st.markdown("<a id='fluxo-de-caixa'></a>", unsafe_allow_html=True)
-        col_g1, col_g2 = st.columns([1.2, 1])
-        
-        with col_g1:
-            st.markdown("##### 📌 Distribuição de Despesas Operacionais")
-            df_desp_cat = df_despesas.groupby("Categoria")["Valor"].sum().reset_index()
-            df_desp_cat = df_desp_cat[df_desp_cat["Valor"] > 0].sort_values(by="Valor", ascending=True)
-            df_desp_cat["Categoria_Label"] = df_desp_cat["Categoria"].apply(quebrar_linha_nome)
+        tab_exec, tab_c6, tab_invest, tab_ia_hub = st.tabs([
+            "🏠 Resumo Executivo",
+            "🖤 Cartão C6 & Faturas",
+            "🏛️ Carteira de Ativos",
+            "🔮 Projeções & IA"
+        ])
 
-            fig_cat = px.bar(
-                df_desp_cat,
-                x="Valor", y="Categoria_Label", orientation="h",
-                labels={"Valor": "R$", "Categoria_Label": ""},
-                color="Valor", 
-                color_continuous_scale=["#3B82F6", "#EF4444"]
-            )
-            fig_cat.update_layout(
-                plotly_theme["layout"], 
-                coloraxis_showscale=False, 
-                height=380,
-                margin=dict(l=110, r=20, t=20, b=20)
-            )
-            fig_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
-            st.plotly_chart(fig_cat, use_container_width=True, config=plotly_config)
+        # =========================================================
+        # TAB 1: RESUMO EXECUTIVO (DRE & CAIXA)
+        # =========================================================
+        with tab_exec:
+            st.markdown("### 📊 Demonstrativo de Resultados & Fluxo de Caixa")
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem;'>Evolução de receitas e detalhamento por centro de custo</p>", unsafe_allow_html=True)
+
+            col_g1, col_g2 = st.columns([1.2, 1])
             
-        with col_g2:
-            st.markdown("##### 📈 Evolução das Receitas Mês a Mês")
-            df_rec_evo = df_receitas.groupby("Mês", observed=False)["Valor"].sum().reset_index()
-            df_rec_evo = df_rec_evo.sort_values("Mês")
-            
-            fig_evo = px.area(
-                df_rec_evo,
-                x="Mês", y="Valor", 
-                markers=True,
-                color_discrete_sequence=["#10B981"]
-            )
-            fig_evo.update_layout(
-                plotly_theme["layout"], 
-                height=380,
-                margin=dict(l=50, r=20, t=20, b=30)
-            )
-            fig_evo.update_yaxes(tickprefix="R$ ", tickformat="~s")
-            st.plotly_chart(fig_evo, use_container_width=True, config=plotly_config)
+            with col_g1:
+                st.markdown("##### 📌 Despesas Operacionais por Categoria")
+                df_desp_cat = df_despesas.groupby("Categoria")["Valor"].sum().reset_index()
+                df_desp_cat = df_desp_cat[df_desp_cat["Valor"] > 0].sort_values(by="Valor", ascending=True)
+                df_desp_cat["Categoria_Label"] = df_desp_cat["Categoria"].apply(quebrar_linha_nome)
 
-        st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
+                fig_cat = px.bar(
+                    df_desp_cat,
+                    x="Valor", y="Categoria_Label", orientation="h",
+                    labels={"Valor": "R$", "Categoria_Label": ""},
+                    color="Valor", 
+                    color_continuous_scale=["#58A6FF", "#F85149"]
+                )
+                fig_cat.update_layout(
+                    plotly_theme["layout"], 
+                    coloraxis_showscale=False, 
+                    height=380,
+                    margin=dict(l=110, r=20, t=20, b=20)
+                )
+                fig_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
+                st.plotly_chart(fig_cat, use_container_width=True, config=plotly_config)
+                
+            with col_g2:
+                st.markdown("##### 📈 Curva de Receita Mês a Mês")
+                df_rec_evo = df_receitas.groupby("Mês", observed=False)["Valor"].sum().reset_index()
+                df_rec_evo = df_rec_evo.sort_values("Mês")
+                
+                fig_evo = px.area(
+                    df_rec_evo,
+                    x="Mês", y="Valor", 
+                    markers=True,
+                    color_discrete_sequence=["#3FB950"]
+                )
+                fig_evo.update_layout(
+                    plotly_theme["layout"], 
+                    height=380,
+                    margin=dict(l=50, r=20, t=20, b=30)
+                )
+                fig_evo.update_yaxes(tickprefix="R$ ", tickformat="~s")
+                st.plotly_chart(fig_evo, use_container_width=True, config=plotly_config)
 
-        # -------------------------------------------------------------
-        # 💳 DETALHAMENTO DA FATURA C6 BANK & COMPROMISSOS FUTUROS
-        # -------------------------------------------------------------
-        st.markdown("<a id='fatura-c6'></a>", unsafe_allow_html=True)
-        st.markdown("""
-        <h3 style='display: flex; align-items: center; margin-bottom: 0px;'>
-            <span class="c6-logo-badge">C6</span>
-            Raio-X da Fatura C6 Bank & Parcelas Futuras
-        </h3>
-        """, unsafe_allow_html=True)
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Análise detalhada dos lançamentos atuais e projeção de compromissos a vencer</p>", unsafe_allow_html=True)
+        # =========================================================
+        # TAB 2: CARTÃO C6 BANK & COMPROMISSOS FUTUROS
+        # =========================================================
+        with tab_c6:
+            st.markdown("""
+            <h3 style='display: flex; align-items: center; margin-bottom: 0px;'>
+                <span class="c6-logo-badge">C6</span>
+                Gestão da Fatura C6 Bank & Compromissos
+            </h3>
+            """, unsafe_allow_html=True)
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento de compras, parcelamento futuro e faturamento</p>", unsafe_allow_html=True)
 
-        try:
-            aba_encoded = urllib.parse.quote("Out / 26")
-            fatura_csv_url = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba_encoded}"
-            
             try:
-                df_fatura_raw = load_data(fatura_csv_url)
-            except Exception:
-                fatura_csv_fallback = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv"
-                df_fatura_raw = load_data(fatura_csv_fallback)
-
-            df_fatura_raw.columns = [str(c).strip() for c in df_fatura_raw.columns]
-            col_valor = [c for c in df_fatura_raw.columns if "Valor" in c and "R$" in c]
-            col_valor_str = col_valor[0] if col_valor else "Valor (em R$)"
-
-            if col_valor_str in df_fatura_raw.columns:
-                df_fatura = df_fatura_raw.copy()
-                df_fatura["Valor_Num"] = df_fatura[col_valor_str].apply(parse_br_val)
-                df_fatura_compras = df_fatura[df_fatura["Valor_Num"] > 0].copy()
+                aba_encoded = urllib.parse.quote("Out / 26")
+                fatura_csv_url = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba_encoded}"
                 
-                total_fatura = df_fatura_compras["Valor_Num"].sum()
-                num_compras = len(df_fatura_compras)
-                
-                # CÁLCULO DE PARCELAS FUTURAS A VENCER
-                parcelas_futuras_list = []
-                total_parcelado_futuro = 0.0
+                try:
+                    df_fatura_raw = load_data(fatura_csv_url)
+                except Exception:
+                    fatura_csv_fallback = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv"
+                    df_fatura_raw = load_data(fatura_csv_fallback)
 
-                if "Parcela" in df_fatura_compras.columns:
-                    for idx, row in df_fatura_compras.iterrows():
-                        p_str = str(row["Parcela"]).strip()
-                        if "/" in p_str:
-                            try:
-                                atual, total_p = map(int, p_str.split("/"))
-                                rest = total_p - atual
-                                if rest > 0:
-                                    v_mensal = row["Valor_Num"]
-                                    v_futuro = v_mensal * rest
-                                    total_parcelado_futuro += v_futuro
-                                    
-                                    desc_item = row["Descrição"] if "Descrição" in row else "-"
-                                    cat_item = row["Categoria"] if "Categoria" in row else "-"
-                                    
-                                    parcelas_futuras_list.append({
-                                        "Estabelecimento / Compra": desc_item,
-                                        "Categoria": cat_item,
-                                        "Parcela Atual": f"{atual}/{total_p}",
-                                        "Restantes": f"{rest} x",
-                                        "Valor Mensal": f"R$ {v_mensal:,.2f}",
-                                        "Total a Vencer": f"R$ {v_futuro:,.2f}",
-                                        "val_futuro_num": v_futuro
-                                    })
-                            except Exception:
-                                continue
+                df_fatura_raw.columns = [str(c).strip() for c in df_fatura_raw.columns]
+                col_valor = [c for c in df_fatura_raw.columns if "Valor" in c and "R$" in c]
+                col_valor_str = col_valor[0] if col_valor else "Valor (em R$)"
 
-                # CARDS KPI DA FATURA + PARCELAS FUTURAS
-                cf1, cf2, cf3, cf4 = st.columns(4)
-                with cf1:
-                    st.markdown(f"""
-                    <div class="kpi-card" style="border-color: #EF4444;">
-                        <div class="kpi-title">Fatura Atual (Out/26)</div>
-                        <div class="kpi-value val-red">R$ {total_fatura:,.2f}</div>
-                        <div class="kpi-badge badge-neg">{num_compras} Lançamentos</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                if col_valor_str in df_fatura_raw.columns:
+                    df_fatura = df_fatura_raw.copy()
+                    df_fatura["Valor_Num"] = df_fatura[col_valor_str].apply(parse_br_val)
+                    df_fatura_compras = df_fatura[df_fatura["Valor_Num"] > 0].copy()
+                    
+                    total_fatura = df_fatura_compras["Valor_Num"].sum()
+                    num_compras = len(df_fatura_compras)
+                    
+                    # CÁLCULO DE PARCELAS FUTURAS
+                    parcelas_futuras_list = []
+                    total_parcelado_futuro = 0.0
 
-                with cf2:
-                    st.markdown(f"""
-                    <div class="kpi-card" style="border-color: #A855F7;">
-                        <div class="kpi-title">Total Parcelado Futuro</div>
-                        <div class="kpi-value val-purple">R$ {total_parcelado_futuro:,.2f}</div>
-                        <div class="kpi-badge badge-neu">Compromisso Futuro</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    if "Parcela" in df_fatura_compras.columns:
+                        for idx, row in df_fatura_compras.iterrows():
+                            p_str = str(row["Parcela"]).strip()
+                            if "/" in p_str:
+                                try:
+                                    atual, total_p = map(int, p_str.split("/"))
+                                    rest = total_p - atual
+                                    if rest > 0:
+                                        v_mensal = row["Valor_Num"]
+                                        v_futuro = v_mensal * rest
+                                        total_parcelado_futuro += v_futuro
+                                        
+                                        desc_item = row["Descrição"] if "Descrição" in row else "-"
+                                        cat_item = row["Categoria"] if "Categoria" in row else "-"
+                                        
+                                        parcelas_futuras_list.append({
+                                            "Estabelecimento / Compra": desc_item,
+                                            "Categoria": cat_item,
+                                            "Parcela Atual": f"{atual}/{total_p}",
+                                            "Restantes": f"{rest} x",
+                                            "Valor Mensal": f"R$ {v_mensal:,.2f}",
+                                            "Total a Vencer": f"R$ {v_futuro:,.2f}",
+                                            "val_futuro_num": v_futuro
+                                        })
+                                except Exception:
+                                    continue
 
-                with cf3:
-                    st.markdown(f"""
-                    <div class="kpi-card">
-                        <div class="kpi-title">Compras Parceladas Ativas</div>
-                        <div class="kpi-value val-blue">{len(parcelas_futuras_list)}</div>
-                        <div class="kpi-badge badge-neu">Itens em Aberto</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    cf1, cf2, cf3, cf4 = st.columns(4)
+                    with cf1:
+                        st.markdown(f"""
+                        <div class="kpi-card" style="border-color: #F85149;">
+                            <div class="kpi-title">Fatura Atual (Out/26)</div>
+                            <div class="kpi-value val-red">R$ {total_fatura:,.2f}</div>
+                            <div class="kpi-badge badge-neg">{num_compras} Compras</div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                with cf4:
-                    media_compra = (total_fatura / num_compras) if num_compras > 0 else 0.0
-                    st.markdown(f"""
-                    <div class="kpi-card">
-                        <div class="kpi-title">Ticket Médio / Compra</div>
-                        <div class="kpi-value val-green">R$ {media_compra:,.2f}</div>
-                        <div class="kpi-badge badge-neu">Média por Item</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    with cf2:
+                        st.markdown(f"""
+                        <div class="kpi-card" style="border-color: #A371F7;">
+                            <div class="kpi-title">Total Parcelado Futuro</div>
+                            <div class="kpi-value val-purple">R$ {total_parcelado_futuro:,.2f}</div>
+                            <div class="kpi-badge badge-neu">A Vencer</div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                st.markdown("<br>", unsafe_allow_html=True)
+                    with cf3:
+                        st.markdown(f"""
+                        <div class="kpi-card">
+                            <div class="kpi-title">Itens Parcelados Ativos</div>
+                            <div class="kpi-value val-blue">{len(parcelas_futuras_list)}</div>
+                            <div class="kpi-badge badge-neu">Em Aberto</div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                # SEÇÃO DE PARCELAS A VENCER
-                if parcelas_futuras_list:
-                    st.markdown("##### ⏳ Compras Parceladas e Saldos a Vencer")
-                    df_pf_display = pd.DataFrame(parcelas_futuras_list).sort_values(by="val_futuro_num", ascending=False)
-                    st.dataframe(
-                        df_pf_display[["Estabelecimento / Compra", "Categoria", "Parcela Atual", "Restantes", "Valor Mensal", "Total a Vencer"]],
-                        use_container_width=True,
-                        hide_index=True
-                    )
+                    with cf4:
+                        media_compra = (total_fatura / num_compras) if num_compras > 0 else 0.0
+                        st.markdown(f"""
+                        <div class="kpi-card">
+                            <div class="kpi-title">Ticket Médio / Item</div>
+                            <div class="kpi-value val-green">R$ {media_compra:,.2f}</div>
+                            <div class="kpi-badge badge-neu">Média Gasto</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
                     st.markdown("<br>", unsafe_allow_html=True)
 
-                col_fat1, col_fat2 = st.columns([1.2, 1])
-
-                with col_fat1:
-                    st.markdown("##### 📌 Gastos da Fatura por Categoria")
-                    if "Categoria" in df_fatura_compras.columns:
-                        df_fatura_compras["Categoria_Limpa"] = df_fatura_compras["Categoria"].apply(simplificar_categoria_fatura)
-                        
-                        df_fat_cat = df_fatura_compras.groupby("Categoria_Limpa")["Valor_Num"].sum().reset_index()
-                        df_fat_cat = df_fat_cat[df_fat_cat["Categoria_Limpa"] != "-"].sort_values(by="Valor_Num", ascending=True)
-
-                        fig_fat_cat = px.bar(
-                            df_fat_cat,
-                            x="Valor_Num", y="Categoria_Limpa", orientation="h",
-                            labels={"Valor_Num": "R$", "Categoria_Limpa": ""},
-                            color="Valor_Num",
-                            color_continuous_scale="Reds"
-                        )
-                        fig_fat_cat.update_layout(
-                            plotly_theme["layout"],
-                            coloraxis_showscale=False,
-                            height=520,
-                            margin=dict(l=140, r=20, t=20, b=20)
-                        )
-                        fig_fat_cat.update_yaxes(tickfont=dict(size=11))
-                        fig_fat_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
-                        st.plotly_chart(fig_fat_cat, use_container_width=True, config=plotly_config)
-
-                with col_fat2:
-                    st.markdown("##### 🏆 Top 10 Maiores Compras do Mês")
-                    if "Descrição" in df_fatura_compras.columns:
-                        df_top10 = df_fatura_compras.sort_values(by="Valor_Num", ascending=False).head(10).copy()
-                        df_top10["Descrição_Label"] = df_top10["Descrição"].apply(lambda d: quebrar_linha_nome(d, max_chars=16))
-                        df_top10 = df_top10.sort_values(by="Valor_Num", ascending=True)
-
-                        fig_top10 = px.bar(
-                            df_top10,
-                            x="Valor_Num", y="Descrição_Label", orientation="h",
-                            labels={"Valor_Num": "R$", "Descrição_Label": ""},
-                            color="Valor_Num",
-                            color_continuous_scale="Purples"
-                        )
-                        fig_top10.update_layout(
-                            plotly_theme["layout"],
-                            coloraxis_showscale=False,
-                            height=520,
-                            margin=dict(l=130, r=20, t=20, b=20)
-                        )
-                        fig_top10.update_yaxes(tickfont=dict(size=11))
-                        fig_top10.update_xaxes(tickprefix="R$ ", tickformat="~s")
-                        st.plotly_chart(fig_top10, use_container_width=True, config=plotly_config)
-
-                # Tabela Interativa de Busca na Fatura
-                st.markdown("##### 🔎 Pesquisar Lançamento na Fatura")
-                busca_compra = st.text_input("Digite o nome da loja, estabelecimento ou categoria:", "")
-                
-                cols_exibir = [c for c in ["Data de compra", "Descrição", "Categoria", "Parcela", col_valor_str] if c in df_fatura_compras.columns]
-                df_fat_display = df_fatura_compras[cols_exibir].copy()
-                
-                if busca_compra:
-                    mask = pd.Series(False, index=df_fat_display.index)
-                    if "Descrição" in df_fat_display.columns:
-                        mask |= df_fat_display["Descrição"].str.contains(busca_compra, case=False, na=False)
-                    if "Categoria" in df_fat_display.columns:
-                        mask |= df_fat_display["Categoria"].str.contains(busca_compra, case=False, na=False)
-                    df_fat_display = df_fat_display[mask]
-                
-                st.dataframe(df_fat_display, use_container_width=True, hide_index=True)
-
-                # =========================================================
-                # 🆕 ANÁLISE COMPLETA POR CATEGORIA DA FATURA
-                # =========================================================
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("##### 🍕 Visão Geral dos Gastos por Categoria da Fatura")
-
-                if "Categoria" in df_fatura_compras.columns:
-                    df_fatura_compras["Categoria_Limpa"] = df_fatura_compras["Categoria"].apply(simplificar_categoria_fatura)
-                    
-                    # Agrupamento e métricas por categoria
-                    df_cat_summary = df_fatura_compras.groupby("Categoria_Limpa").agg(
-                        Valor_Total=("Valor_Num", "sum"),
-                        Qtd_Lançamentos=("Valor_Num", "count")
-                    ).reset_index()
-
-                    df_cat_summary = df_cat_summary[df_cat_summary["Categoria_Limpa"] != "-"].sort_values(by="Valor_Total", ascending=False)
-                    
-                    total_fatura_sum = df_cat_summary["Valor_Total"].sum()
-                    df_cat_summary["% do Cartão"] = (df_cat_summary["Valor_Total"] / total_fatura_sum) * 100
-
-                    col_f_donut, col_f_topico = st.columns([1.1, 1])
-
-                    with col_f_donut:
-                        fig_fat_donut = px.pie(
-                            df_cat_summary,
-                            names="Categoria_Limpa",
-                            values="Valor_Total",
-                            hole=0.50,
-                            title="Distribuição Percentual da Fatura",
-                            color_discrete_sequence=px.colors.qualitative.Pastel
-                        )
-                        fig_fat_donut.update_traces(
-                            textinfo="percent+label",
-                            hovertemplate="<b>%{label}</b><br>Total: R$ %{value:,.2f}<br>Participação: %{percent:.1%}"
-                        )
-                        fig_fat_donut.update_layout(
-                            plotly_theme["layout"],
-                            height=360,
-                            showlegend=False,
-                            margin=dict(l=20, r=20, t=40, b=20)
-                        )
-                        st.plotly_chart(fig_fat_donut, use_container_width=True, config=plotly_config)
-
-                    with col_f_topico:
-                        st.markdown("###### 📑 Resumo das Categorias")
-                        
-                        df_cat_display = df_cat_summary.copy()
-                        df_cat_display["Valor (R$)"] = df_cat_display["Valor_Total"].apply(lambda v: f"R$ {v:,.2f}")
-                        df_cat_display["% Fatura"] = df_cat_display["% do Cartão"].apply(lambda p: f"{p:.1f}%")
-                        df_cat_display.rename(columns={
-                            "Categoria_Limpa": "Categoria",
-                            "Qtd_Lançamentos": "Compras"
-                        }, inplace=True)
-
+                    if parcelas_futuras_list:
+                        st.markdown("##### ⏳ Compromissos Parcelados e Saldos a Vencer")
+                        df_pf_display = pd.DataFrame(parcelas_futuras_list).sort_values(by="val_futuro_num", ascending=False)
                         st.dataframe(
-                            df_cat_display[["Categoria", "Valor (R$)", "% Fatura", "Compras"]],
+                            df_pf_display[["Estabelecimento / Compra", "Categoria", "Parcela Atual", "Restantes", "Valor Mensal", "Total a Vencer"]],
                             use_container_width=True,
                             hide_index=True
                         )
+                        st.markdown("<br>", unsafe_allow_html=True)
 
-        except Exception as e_fat:
-            st.warning("⚠️ Não foi possível carregar os dados da Fatura C6. Por favor, confirme se o compartilhamento da planilha está definido para 'Qualquer pessoa com o link'.")
+                    col_fat1, col_fat2 = st.columns([1.2, 1])
 
-        st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
+                    with col_fat1:
+                        st.markdown("##### 📌 Gastos da Fatura por Categoria")
+                        if "Categoria" in df_fatura_compras.columns:
+                            df_fatura_compras["Categoria_Limpa"] = df_fatura_compras["Categoria"].apply(simplificar_categoria_fatura)
+                            
+                            df_fat_cat = df_fatura_compras.groupby("Categoria_Limpa")["Valor_Num"].sum().reset_index()
+                            df_fat_cat = df_fat_cat[df_fat_cat["Categoria_Limpa"] != "-"].sort_values(by="Valor_Num", ascending=True)
 
-        # -------------------------------------------------------------
-        # 8. INVESTIMENTOS
-        # -------------------------------------------------------------
-        st.markdown("<a id='investimentos'></a>", unsafe_allow_html=True)
-        st.markdown("### 📊 Posição & Evolução Patrimonial dos Investimentos")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento individual e evolução de cada ativo da carteira</p>", unsafe_allow_html=True)
-        
-        df_inv_ultimo = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes].copy()
-        df_inv_ultimo = df_inv_ultimo[df_inv_ultimo["Valor"] > 0].sort_values(by="Valor", ascending=True)
+                            fig_fat_cat = px.bar(
+                                df_fat_cat,
+                                x="Valor_Num", y="Categoria_Limpa", orientation="h",
+                                labels={"Valor_Num": "R$", "Categoria_Limpa": ""},
+                                color="Valor_Num",
+                                color_continuous_scale="Reds"
+                            )
+                            fig_fat_cat.update_layout(
+                                plotly_theme["layout"],
+                                coloraxis_showscale=False,
+                                height=480,
+                                margin=dict(l=140, r=20, t=20, b=20)
+                            )
+                            fig_fat_cat.update_xaxes(tickprefix="R$ ", tickformat="~s")
+                            st.plotly_chart(fig_fat_cat, use_container_width=True, config=plotly_config)
 
-        st.markdown(f"""
-        <div class="kpi-card" style="margin-bottom: 15px; border-color: #10B981;">
-            <div class="kpi-title">Total Investimentos em {ultimo_mes.upper()}</div>
-            <div class="kpi-value val-green">R$ {patrimonio_total_ultimo_mes:,.2f}</div>
-        </div>
-        """, unsafe_allow_html=True)
+                    with col_fat2:
+                        st.markdown("##### 🏆 Top 10 Maiores Lançamentos do Mês")
+                        if "Descrição" in df_fatura_compras.columns:
+                            df_top10 = df_fatura_compras.sort_values(by="Valor_Num", ascending=False).head(10).copy()
+                            df_top10["Descrição_Label"] = df_top10["Descrição"].apply(lambda d: quebrar_linha_nome(d, max_chars=16))
+                            df_top10 = df_top10.sort_values(by="Valor_Num", ascending=True)
 
-        df_inv_ultimo["Categoria_Label"] = df_inv_ultimo["Categoria"].apply(quebrar_linha_nome)
-        df_inv_ultimo["Texto_Valor"] = df_inv_ultimo["Valor"].apply(lambda v: f"R$ {v:,.2f}")
+                            fig_top10 = px.bar(
+                                df_top10,
+                                x="Valor_Num", y="Descrição_Label", orientation="h",
+                                labels={"Valor_Num": "R$", "Descrição_Label": ""},
+                                color="Valor_Num",
+                                color_continuous_scale="Purples"
+                            )
+                            fig_top10.update_layout(
+                                plotly_theme["layout"],
+                                coloraxis_showscale=False,
+                                height=480,
+                                margin=dict(l=130, r=20, t=20, b=20)
+                            )
+                            fig_top10.update_xaxes(tickprefix="R$ ", tickformat="~s")
+                            st.plotly_chart(fig_top10, use_container_width=True, config=plotly_config)
 
-        fig_inv_bar = px.bar(
-            df_inv_ultimo,
-            x="Valor", y="Categoria_Label", orientation="h",
-            title=f"🏛️ Saldo de Ativos em {ultimo_mes.upper()}",
-            labels={"Valor": "R$", "Categoria_Label": ""},
-            color="Valor", 
-            color_continuous_scale="Greens",
-            text="Texto_Valor"
-        )
-        fig_inv_bar.update_layout(
-            plotly_theme["layout"], 
-            coloraxis_showscale=False, 
-            height=460,
-            margin=dict(l=110, r=40, t=40, b=30)
-        )
-        fig_inv_bar.update_xaxes(tickprefix="R$ ", tickformat="~s")
-        fig_inv_bar.update_traces(textposition="outside", textfont=dict(size=11, color="#10B981"))
-        st.plotly_chart(fig_inv_bar, use_container_width=True, config=plotly_config)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        df_carteira_investimentos = df_carteira_investimentos.sort_values("Mês")
-        fig_inv_line = px.line(
-            df_carteira_investimentos,
-            x="Mês", y="Valor", color="Categoria",
-            title="📈 Curva de Crescimento por Ativo",
-            markers=True,
-            labels={"Valor": "R$", "Categoria": ""},
-            color_discrete_sequence=px.colors.qualitative.Bold
-        )
-        fig_inv_line.update_layout(
-            plotly_theme["layout"], 
-            height=580,
-            legend=dict(
-                orientation="h",
-                yanchor="top",
-                y=-0.25,
-                xanchor="center",
-                x=0.5,
-                font=dict(size=10)
-            ),
-            margin=dict(l=50, r=20, t=40, b=180)
-        )
-        fig_inv_line.update_yaxes(tickprefix="R$ ", tickformat="~s")
-        st.plotly_chart(fig_inv_line, use_container_width=True, config=plotly_config)
-
-        st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 9. VARIAÇÃO DE RENDIMENTO MÊS A MÊS
-        # -------------------------------------------------------------
-        st.markdown("<a id='lucro-prejuizo'></a>", unsafe_allow_html=True)
-        st.markdown("### 💵 Lucro / Prejuízo dos Investimentos")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Comparativo da evolução patrimonial entre meses consecutivos</p>", unsafe_allow_html=True)
-
-        df_carteira_mensal = df_carteira_investimentos.groupby("Mês", observed=False)["Valor"].sum().reset_index()
-        df_carteira_mensal = df_carteira_mensal.sort_values("Mês")
-        df_carteira_mensal = df_carteira_mensal[df_carteira_mensal["Valor"] > 0].reset_index(drop=True)
-
-        if len(df_carteira_mensal) > 1:
-            registros_variacao = []
-            
-            for i in range(1, len(df_carteira_mensal)):
-                m_ant = df_carteira_mensal.loc[i-1, "Mês"]
-                val_ant = df_carteira_mensal.loc[i-1, "Valor"]
-                
-                m_atual = df_carteira_mensal.loc[i, "Mês"]
-                val_atual = df_carteira_mensal.loc[i, "Valor"]
-                
-                diff_abs = val_atual - val_ant
-                diff_pct = (diff_abs / val_ant * 100) if val_ant > 0 else 0.0
-                status = "🟢 Lucro" if diff_abs >= 0 else "🔴 Prejuízo"
-                
-                registros_variacao.append({
-                    "Período": f"{str(m_ant).upper()} ➔ {str(m_atual).upper()}",
-                    "Mês Anterior": f"R$ {val_ant:,.2f}",
-                    "Mês Atual": f"R$ {val_atual:,.2f}",
-                    "Resultado (R$)": f"R$ {diff_abs:+,.2f}",
-                    "Rendimento (%)": f"{diff_pct:+.2f}%",
-                    "Status": status
-                })
-            
-            df_var_display = pd.DataFrame(registros_variacao)
-            
-            st.dataframe(
-                df_var_display, 
-                use_container_width=True, 
-                hide_index=True
-            )
-        else:
-            st.info("Selecione pelo menos 2 meses no filtro para comparar a variação.")
-
-        st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 10. RAIO-X INDIVIDUAL
-        # -------------------------------------------------------------
-        st.markdown("<a id='raio-x'></a>", unsafe_allow_html=True)
-        st.markdown("### 🔍 Raio-X & Análise Individual")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione um ativo para analisar seu histórico de rendimento</p>", unsafe_allow_html=True)
-
-        ativos_encerrados = [
-            "C6 - CDB C6 Prefixado 1 ano (15,7% a.a.) Venc em 03/06/26",
-            "Nubank Caixinha 115% CDI (líquido)",
-            "Nubank LCA - Banco BV - Venc: 13/03/2026 liquido",
-            "C6 - Carbon Ouro"
-        ]
-
-        todos_ativos = df_carteira_investimentos["Categoria"].unique()
-        lista_ativos_raiox = sorted([a for a in todos_ativos if a not in ativos_encerrados])
-
-        if lista_ativos_raiox:
-            ativo_escolhido = st.selectbox("Escolha um investimento para detalhar:", lista_ativos_raiox)
-
-            df_ativo_filtro = df_carteira_investimentos[df_carteira_investimentos["Categoria"] == ativo_escolhido].sort_values("Mês")
-            df_ativo_validos = df_ativo_filtro[df_ativo_filtro["Valor"] > 0].reset_index(drop=True)
-            
-            val_inicial = df_ativo_validos["Valor"].iloc[0] if not df_ativo_validos.empty else 0.0
-            val_final = df_ativo_validos["Valor"].iloc[-1] if not df_ativo_validos.empty else 0.0
-            var_total_abs = val_final - val_inicial
-            var_total_pct = (var_total_abs / val_inicial * 100) if val_inicial > 0 else 0.0
-
-            c_a1, c_a2, c_a3, c_a4 = st.columns(4)
-            c_a1.metric("Valor Inicial", f"R$ {val_inicial:,.2f}")
-            c_a2.metric("Valor Atual", f"R$ {val_final:,.2f}")
-            c_a3.metric("Evolução (R$)", f"R$ {var_total_abs:+,.2f}", delta=f"R$ {var_total_abs:+,.2f}")
-            c_a4.metric("Evolução (%)", f"{var_total_pct:+.2f}%", delta=f"{var_total_pct:+.2f}%")
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            if len(df_ativo_validos) > 0:
-                st.markdown(f"##### 📑 Histórico de Crescimento: `{ativo_escolhido}`")
-                
-                registros_ativo_m = []
-                for idx in range(len(df_ativo_validos)):
-                    m_curr = str(df_ativo_validos.loc[idx, "Mês"]).upper()
-                    val_curr = df_ativo_validos.loc[idx, "Valor"]
+                    st.markdown("##### 🔎 Pesquisa Rápida na Fatura")
+                    busca_compra = st.text_input("Buscar por loja, estabelecimento ou categoria:", "", placeholder="Digite para filtrar...")
                     
-                    if idx == 0:
-                        txt_var_abs = "-"
-                        txt_var_pct = "-"
-                    else:
-                        val_prev = df_ativo_validos.loc[idx - 1, "Valor"]
-                        var_m_abs = val_curr - val_prev
-                        var_m_pct = (var_m_abs / val_prev * 100) if val_prev > 0 else 0.0
-                        txt_var_abs = f"R$ {var_m_abs:+,.2f}"
-                        txt_var_pct = f"{var_m_pct:+.2f}%"
-
-                    registros_ativo_m.append({
-                        "Mês": m_curr,
-                        "Saldo em Carteira": f"R$ {val_curr:,.2f}",
-                        "Variação (R$)": txt_var_abs,
-                        "Variação (%)": txt_var_pct
-                    })
-
-                df_ativo_tab = pd.DataFrame(registros_ativo_m)
-                st.dataframe(df_ativo_tab, use_container_width=True, hide_index=True)
-                st.markdown("<br>", unsafe_allow_html=True)
-
-            fig_ativo_single = px.area(
-                df_ativo_filtro,
-                x="Mês", y="Valor",
-                title=f"📈 Evolução: {ativo_escolhido}",
-                markers=True,
-                color_discrete_sequence=["#8B5CF6"],
-                labels={"Valor": "R$", "Mês": ""}
-            )
-            fig_ativo_single.update_layout(
-                plotly_theme["layout"], 
-                height=350,
-                margin=dict(l=50, r=20, t=30, b=20)
-            )
-            fig_ativo_single.update_yaxes(tickprefix="R$ ", tickformat="~s")
-            st.plotly_chart(fig_ativo_single, use_container_width=True, config=plotly_config)
-
-        st.markdown("<hr style='border-color: #1F2937;'>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 11. DIVERSIFICAÇÃO & ALOCAÇÃO POR CLASSE DE ATIVO
-        # -------------------------------------------------------------
-        st.markdown("<a id='diversificacao'></a>", unsafe_allow_html=True)
-        st.markdown("### 🍩 Diversificação por Classe de Ativo")
-        st.markdown(f"<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Alocação em <b>{ultimo_mes.upper()} / {ano_selecionado}</b></p>", unsafe_allow_html=True)
-
-        def classificar_ativo(nome):
-            nome_upper = str(nome).upper()
-            if "IPCA" in nome_upper:
-                return "Inflação (IPCA)"
-            elif "PREFIXADO" in nome_upper or "PRE" in nome_upper:
-                return "Pré-fixado"
-            elif "MXRF11" in nome_upper or "FII" in nome_upper or "AÇÕES" in nome_upper:
-                return "Renda Variável / FIIs"
-            elif "CAIXINHA" in nome_upper or "CDI" in nome_upper or "CDB" in nome_upper:
-                return "Pós-fixado / Liquidez"
-            else:
-                return "Outros / Proteção"
-
-        df_ultimo_mes = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes].copy()
-        df_ultimo_mes = df_ultimo_mes[df_ultimo_mes["Valor"] > 0]
-        df_ultimo_mes["Classe"] = df_ultimo_mes["Categoria"].apply(classificar_ativo)
-
-        df_classes = df_ultimo_mes.groupby("Classe")["Valor"].sum().reset_index()
-        df_classes["Percentual"] = (df_classes["Valor"] / df_classes["Valor"].sum()) * 100
-
-        col_donut, col_tabela_classes = st.columns([1.2, 1])
-
-        with col_donut:
-            fig_donut = px.pie(
-                df_classes,
-                names="Classe",
-                values="Valor",
-                hole=0.55,
-                title=f"Distribuição ({ultimo_mes.upper()})",
-                color_discrete_sequence=px.colors.qualitative.Set2
-            )
-            fig_donut.update_traces(
-                textinfo="percent+label",
-                hovertemplate="<b>%{label}</b><br>Saldo: R$ %{value:,.2f}<br>Participação: %{percent:.2f}%"
-            )
-            fig_donut.update_layout(
-                plotly_theme["layout"],
-                height=380,
-                showlegend=False,
-                margin=dict(l=20, r=20, t=40, b=20)
-            )
-            st.plotly_chart(fig_donut, use_container_width=True, config=plotly_config)
-
-        with col_tabela_classes:
-            st.markdown("##### 📑 Detalhamento da Alocação")
-            df_classes_display = df_classes.sort_values(by="Valor", ascending=False).copy()
-            df_classes_display["Valor Formatado"] = df_classes_display["Valor"].apply(lambda v: f"R$ {v:,.2f}")
-            df_classes_display["% Carteira"] = df_classes_display["Percentual"].apply(lambda p: f"{p:.2f}%")
-            
-            st.dataframe(
-                df_classes_display[["Classe", "Valor Formatado", "% Carteira"]],
-                use_container_width=True,
-                hide_index=True
-            )
-
-        st.markdown("<hr style='border-color: #1F2937; margin-top: 30px; margin-bottom: 25px;'>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 🤖 MÓDULO EXPERIMENTAL DE INTELIGÊNCIA ARTIFICIAL (HUB AO FINAL)
-        # -------------------------------------------------------------
-        st.markdown("<a id='hub-ia'></a>", unsafe_allow_html=True)
-        st.markdown("### 🤖 Hub de Inteligência Financeira Exclusivo")
-        st.markdown("<p style='color: #6B7280; font-size: 0.85rem; margin-bottom: 20px;'>Selecione e teste os 6 módulos de inteligência artificial aplicados à sua carteira e fluxo de caixa</p>", unsafe_allow_html=True)
-
-        aba_ia1, aba_ia2, aba_ia3, aba_ia4, aba_ia5, aba_ia6 = st.tabs([
-            "💬 Chat / Copilot",
-            "📜 Resumo Executivo",
-            "🔮 Projeções Preditivas",
-            "🚨 Detector de Anomalias",
-            "🎯 Rebalanceamento",
-            "📸 Leitor de Comprovantes (OCR)"
-        ])
-
-        # --- 1. CHAT / COPILOT DE FINANÇAS ---
-        with aba_ia1:
-            st.markdown("##### 💬 Assistente de Finanças em Linguagem Natural")
-            q_user = st.text_input("Faça uma pergunta sobre seus gastos, faturas ou investimentos:", placeholder="Ex: Qual foi minha maior despesa em outubro?")
-            
-            if q_user:
-                q_clean = q_user.lower()
-                with st.spinner("Analisando dados do Google Sheets com IA..."):
-                    time.sleep(0.5)
+                    cols_exibir = [c for c in ["Data de compra", "Descrição", "Categoria", "Parcela", col_valor_str] if c in df_fatura_compras.columns]
+                    df_fat_display = df_fatura_compras[cols_exibir].copy()
                     
-                    if "maior despesa" in q_clean or "maior gasto" in q_clean:
-                        df_desp_val = df_despesas[df_despesas["Mês"] == ultimo_mes].sort_values("Valor", ascending=False)
-                        if not df_desp_val.empty:
-                            top_desp = df_desp_val.iloc[0]
-                            st.success(f"🤖 **Resposta da IA:** Em **{ultimo_mes.upper()}**, a sua maior despesa operacional cadastrada foi na categoria **{top_desp['Categoria']}** no valor de **R$ {top_desp['Valor']:,.2f}**.")
-                        else:
-                            st.info("Nenhuma despesa cadastrada para o mês selecionado.")
-                    elif "receita" in q_clean or "ganhei" in q_clean:
-                        rec_m = df_receitas[df_receitas["Mês"] == ultimo_mes]["Valor"].sum()
-                        st.info(f"🤖 **Resposta da IA:** A sua receita total registrada no mês de **{ultimo_mes.upper()}** foi de **R$ {rec_m:,.2f}**.")
-                    elif "fatura" in q_clean or "c6" in q_clean or "cartão" in q_clean:
-                        st.warning(f"🤖 **Resposta da IA:** A fatura atual do seu C6 Bank está registrada em **R$ 2.458,56** (Out/26). Você tem R$ 2.202,31 acumulados em parcelas futuras ativas.")
-                    else:
-                        taxa_poup = ((total_rec - total_desp) / total_rec * 100) if total_rec > 0 else 0
-                        st.markdown(f"""
-                        🤖 **Análise Geral da IA:**
-                        - **Receita do Período:** R$ {total_rec:,.2f}
-                        - **Despesas Operacionais:** R$ {total_desp:,.2f}
-                        - **Taxa de Sobra/Poupança:** {taxa_poup:.1f}% da renda.
-                        - **Patrimônio Atual ({ultimo_mes.upper()}):** R$ {patrimonio_total_ultimo_mes:,.2f}
-                        """)
+                    if busca_compra:
+                        mask = pd.Series(False, index=df_fat_display.index)
+                        if "Descrição" in df_fat_display.columns:
+                            mask |= df_fat_display["Descrição"].str.contains(busca_compra, case=False, na=False)
+                        if "Categoria" in df_fat_display.columns:
+                            mask |= df_fat_display["Categoria"].str.contains(busca_compra, case=False, na=False)
+                        df_fat_display = df_fat_display[mask]
+                    
+                    st.dataframe(df_fat_display, use_container_width=True, hide_index=True)
 
-        # --- 2. RESUMO EXECUTIVO MENSAL ---
-        with aba_ia2:
-            st.markdown("##### 📜 Relatório Executivo do Mês Gerado por IA")
-            
-            taxa_poup = ((total_rec - total_desp) / total_rec * 100) if total_rec > 0 else 0
-            if taxa_poup >= 20:
-                poup_status = "🟢 Excelente (Acima da meta de 20%)"
-            else:
-                poup_status = "🟡 Atencioso (Abaixo da meta de 20%)"
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown("##### 🍕 Visão Percentual por Categoria da Fatura")
+
+                    if "Categoria" in df_fatura_compras.columns:
+                        df_fatura_compras["Categoria_Limpa"] = df_fatura_compras["Categoria"].apply(simplificar_categoria_fatura)
+                        
+                        df_cat_summary = df_fatura_compras.groupby("Categoria_Limpa").agg(
+                            Valor_Total=("Valor_Num", "sum"),
+                            Qtd_Lançamentos=("Valor_Num", "count")
+                        ).reset_index()
+
+                        df_cat_summary = df_cat_summary[df_cat_summary["Categoria_Limpa"] != "-"].sort_values(by="Valor_Total", ascending=False)
+                        total_fatura_sum = df_cat_summary["Valor_Total"].sum()
+                        df_cat_summary["% do Cartão"] = (df_cat_summary["Valor_Total"] / total_fatura_sum) * 100
+
+                        col_f_donut, col_f_topico = st.columns([1.1, 1])
+
+                        with col_f_donut:
+                            fig_fat_donut = px.pie(
+                                df_cat_summary,
+                                names="Categoria_Limpa",
+                                values="Valor_Total",
+                                hole=0.55,
+                                title="Participação na Fatura",
+                                color_discrete_sequence=px.colors.qualitative.Pastel
+                            )
+                            fig_fat_donut.update_traces(
+                                textinfo="percent+label",
+                                hovertemplate="<b>%{label}</b><br>Total: R$ %{value:,.2f}<br>Participação: %{percent:.1%}"
+                            )
+                            fig_fat_donut.update_layout(
+                                plotly_theme["layout"],
+                                height=360,
+                                showlegend=False,
+                                margin=dict(l=20, r=20, t=40, b=20)
+                            )
+                            st.plotly_chart(fig_fat_donut, use_container_width=True, config=plotly_config)
+
+                        with col_f_topico:
+                            st.markdown("###### 📑 Resumo das Categorias")
+                            df_cat_display = df_cat_summary.copy()
+                            df_cat_display["Valor (R$)"] = df_cat_display["Valor_Total"].apply(lambda v: f"R$ {v:,.2f}")
+                            df_cat_display["% Fatura"] = df_cat_display["% do Cartão"].apply(lambda p: f"{p:.1f}%")
+                            df_cat_display.rename(columns={
+                                "Categoria_Limpa": "Categoria",
+                                "Qtd_Lançamentos": "Compras"
+                            }, inplace=True)
+
+                            st.dataframe(
+                                df_cat_display[["Categoria", "Valor (R$)", "% Fatura", "Compras"]],
+                                use_container_width=True,
+                                hide_index=True
+                            )
+
+            except Exception as e_fat:
+                st.warning("⚠️ Dados da Fatura C6 indisponíveis no momento. Verifique a permissão de acesso à planilha.")
+
+        # =========================================================
+        # TAB 3: CARTEIRA DE INVESTIMENTOS & ALOCAÇÃO
+        # =========================================================
+        with tab_invest:
+            st.markdown("### 🏛️ Posição Patrimonial & Curva de Investimentos")
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Evolução de ativos e análise de alocação por classe</p>", unsafe_allow_html=True)
+
+            df_inv_ultimo = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes].copy()
+            df_inv_ultimo = df_inv_ultimo[df_inv_ultimo["Valor"] > 0].sort_values(by="Valor", ascending=True)
 
             st.markdown(f"""
-            <div class="ai-box">
-                <h4 style="margin-top:0; color:#3B82F6;">📊 Diagnóstico de {ultimo_mes.upper()} / {ano_selecionado}</h4>
-                <ul>
-                    <li><b>Taxa de Retenção de Capital:</b> {taxa_poup:.1f}% das receitas foram salvas ou investidas. ({poup_status})</li>
-                    <li><b>Variação de Despesas vs Mês Anterior:</b> {var_desp_pct:+.1f}%</li>
-                    <li><b>Variação Patrimonial da Carteira:</b> {var_patrimonio_pct:+.1f}% no período.</li>
-                    <li><b>Recomendação da IA:</b> Manter a priorização nos aportes em IPCA+ para proteger o capital contra inflação a longo prazo.</li>
-                </ul>
+            <div class="kpi-card" style="margin-bottom: 15px; border-color: #3FB950;">
+                <div class="kpi-title">Patrimônio Investido em {ultimo_mes.upper()}</div>
+                <div class="kpi-value val-green">R$ {patrimonio_total_ultimo_mes:,.2f}</div>
             </div>
             """, unsafe_allow_html=True)
 
-        # -------------------------------------------------------------
-        # --- 3. PROJEÇÕES PREDITIVAS REALISTAS (POR ATIVO OU CONSOLIDADO)
-        # -------------------------------------------------------------
-        with aba_ia3:
-            st.markdown("##### 🔮 Simulação de Projeção Patrimonial Realista")
-            st.caption("Projeção dinâmica conectada diretamente com as suas abas reais do Google Sheets e parâmetros contratados:")
+            df_inv_ultimo["Categoria_Label"] = df_inv_ultimo["Categoria"].apply(quebrar_linha_nome)
+            df_inv_ultimo["Texto_Valor"] = df_inv_ultimo["Valor"].apply(lambda v: f"R$ {v:,.2f}")
 
-            opcoes_ativos_proj = [
-                "🌐 Visão Consolidada (Carteira Toda)",
-                "🏛️ C6 - Tesouro IPCA+ 2050",
-                "🏛️ C6 - Tesouro 2035 (Juros Semestrais)",
-                "📈 C6 - MXRF11 (Com Média de Aportes do Histórico)",
-                "🔒 C6 - CDB IPCA + 7,9% (Venc. 19/04/2027)",
-                "📱 Mercado Pago (120% CDI)"
-            ]
-
-            col_fj1, col_fj2 = st.columns([2, 1])
-            with col_fj1:
-                ativo_proj_sel = st.selectbox("Selecione o Ativo para Projetar:", opcoes_ativos_proj)
-            with col_fj2:
-                ano_alvo_proj = st.slider("Projetar até o Ano:", 2026, 2050, 2035)
-
-            # CARREGAMENTO E PROJEÇÃO DINÂMICA COM BASE NA PLANILHA REAL
-            dados_grafico_proj = []
-            ano_corrente = 2026
-
-            # A. TESOURO IPCA+ 2050
-            saldo_2050 = 15000.0
-            try:
-                df_2050 = load_sheet_by_gid(SPREADSHEET_ID, "1265273668")
-                val_investido_2050 = pd.to_numeric(df_2050.iloc[:, 3].apply(parse_br_val), errors='coerce').sum()
-                if val_investido_2050 > 0:
-                    saldo_2050 = val_investido_2050
-            except Exception:
-                pass
-
-            # B. TESOURO 2035 JUROS SEMESTRAIS
-            saldo_2035 = 12000.0
-            try:
-                df_2035 = load_sheet_by_gid(SPREADSHEET_ID, "1832710448")
-                val_investido_2035 = pd.to_numeric(df_2035.iloc[:, 1].apply(parse_br_val), errors='coerce').sum()
-                if val_investido_2035 > 0:
-                    saldo_2035 = val_investido_2035
-            except Exception:
-                pass
-
-            # C. MXRF11 — CÁLCULO BASEADO NA MÉDIA DE APORTES REALIZADOS
-            cotas_mxrf = 500
-            media_aporte_mensal_mxrf = 300.0  # Média padrão caso falhe a leitura
+            fig_inv_bar = px.bar(
+                df_inv_ultimo,
+                x="Valor", y="Categoria_Label", orientation="h",
+                title=f"Saldo por Ativo em {ultimo_mes.upper()}",
+                labels={"Valor": "R$", "Categoria_Label": ""},
+                color="Valor", 
+                color_continuous_scale="Greens",
+                text="Texto_Valor"
+            )
+            fig_inv_bar.update_layout(
+                plotly_theme["layout"], 
+                coloraxis_showscale=False, 
+                height=450,
+                margin=dict(l=110, r=40, t=40, b=30)
+            )
+            fig_inv_bar.update_xaxes(tickprefix="R$ ", tickformat="~s")
+            fig_inv_bar.update_traces(textposition="outside", textfont=dict(size=11, color="#3FB950"))
+            st.plotly_chart(fig_inv_bar, use_container_width=True, config=plotly_config)
             
-            try:
-                df_mxrf = load_sheet_by_gid(SPREADSHEET_ID, "1282765175")
-                df_mxrf_clean = df_mxrf.dropna(how='all')
-                
-                # Leitura das cotas totais acumuladas na Coluna B
-                total_cotas_sheet = pd.to_numeric(df_mxrf_clean.iloc[:, 1], errors='coerce').sum()
-                if total_cotas_sheet > 0:
-                    cotas_mxrf = total_cotas_sheet
-                
-                # Leitura dos valores totais investidos na Coluna D para calcular a média por compra/mês
-                valores_aportados = pd.to_numeric(df_mxrf_clean.iloc[:, 3].apply(parse_br_val), errors='coerce').dropna()
-                if len(valores_aportados) > 0:
-                    media_aporte_mensal_mxrf = valores_aportados.mean()
-            except Exception:
-                pass
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            df_carteira_investimentos = df_carteira_investimentos.sort_values("Mês")
+            fig_inv_line = px.line(
+                df_carteira_investimentos,
+                x="Mês", y="Valor", color="Categoria",
+                title="📈 Curva Histórica de Crescimento por Ativo",
+                markers=True,
+                labels={"Valor": "R$", "Categoria": ""},
+                color_discrete_sequence=px.colors.qualitative.Bold
+            )
+            fig_inv_line.update_layout(
+                plotly_theme["layout"], 
+                height=520,
+                legend=dict(orientation="h", yanchor="top", y=-0.20, xanchor="center", x=0.5, font=dict(size=10)),
+                margin=dict(l=50, r=20, t=40, b=150)
+            )
+            fig_inv_line.update_yaxes(tickprefix="R$ ", tickformat="~s")
+            st.plotly_chart(fig_inv_line, use_container_width=True, config=plotly_config)
 
-            saldo_mxrf_inicial = cotas_mxrf * mxrf11_preco_num
+            st.markdown("<hr style='border-color: #21262D;'>", unsafe_allow_html=True)
 
-            # D. CDB IPCA + 7,9% (Venc 19/04/2027)
-            saldo_cdb_ipca = 5000.0
+            # DIVERSIFICAÇÃO POR CLASSE DE ATIVO
+            st.markdown("##### 🍩 Diversificação por Classe de Ativo")
+            
+            def classificar_ativo(nome):
+                nome_upper = str(nome).upper()
+                if "IPCA" in nome_upper: return "Inflação (IPCA)"
+                elif "PREFIXADO" in nome_upper or "PRE" in nome_upper: return "Pré-fixado"
+                elif "MXRF11" in nome_upper or "FII" in nome_upper or "AÇÕES" in nome_upper: return "Renda Variável / FIIs"
+                elif "CAIXINHA" in nome_upper or "CDI" in nome_upper or "CDB" in nome_upper: return "Pós-fixado / Liquidez"
+                else: return "Outros / Proteção"
 
-            # E. MERCADO PAGO 120% CDI
-            saldo_mp = 8000.0
+            df_ultimo_mes = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes].copy()
+            df_ultimo_mes = df_ultimo_mes[df_ultimo_mes["Valor"] > 0]
+            df_ultimo_mes["Classe"] = df_ultimo_mes["Categoria"].apply(classificar_ativo)
 
-            # SIMULAÇÃO ANO A ANO
-            for yr in range(ano_corrente, ano_alvo_proj + 1):
-                yrs_elapsed = yr - ano_corrente
-                
-                # Projeção IPCA 2050 (Taxa Média ~6.2% + IPCA 4.0% = 10.2% a.a.)
-                v_2050 = saldo_2050 * ((1 + 0.102) ** yrs_elapsed) + (yrs_elapsed * 12 * 300)
-                
-                # Projeção Tesouro 2035 (Sem novos aportes, vencimento em 2035)
-                if yr <= 2035:
-                    v_2035 = saldo_2035 * ((1 + 0.095) ** yrs_elapsed)
-                else:
-                    v_2035 = saldo_2035 * ((1 + 0.095) ** (2035 - ano_corrente))
-                
-                # PROJEÇÃO MXRF11: Saldo Inicial + (Média Mensal de Aportes x 12 meses x anos passados)
-                # Sem efeito bola de neve automático (as compras manuais continuam sendo lançadas na planilha)
-                v_mxrf = saldo_mxrf_inicial + (media_aporte_mensal_mxrf * 12 * yrs_elapsed)
-                
-                # Projeção CDB IPCA + 7.9% (Vence em 2027)
-                if yr <= 2027:
-                    v_cdb = saldo_cdb_ipca * ((1 + 0.119) ** yrs_elapsed)
-                else:
-                    v_cdb = saldo_cdb_ipca * ((1 + 0.119) ** (2027 - ano_corrente))
-                
-                # Projeção Mercado Pago 120% CDI
-                v_mp = saldo_mp * ((1 + (cdi_num * 1.20 / 100)) ** yrs_elapsed)
+            df_classes = df_ultimo_mes.groupby("Classe")["Valor"].sum().reset_index()
+            df_classes["Percentual"] = (df_classes["Valor"] / df_classes["Valor"].sum()) * 100
 
-                if "Consolidada" in ativo_proj_sel:
-                    v_exibir = v_2050 + v_2035 + v_mxrf + v_cdb + v_mp
-                elif "2050" in ativo_proj_sel:
-                    v_exibir = v_2050
-                elif "2035" in ativo_proj_sel:
-                    v_exibir = v_2035
-                elif "MXRF11" in ativo_proj_sel:
-                    v_exibir = v_mxrf
-                elif "CDB" in ativo_proj_sel:
-                    v_exibir = v_cdb
-                else:
-                    v_exibir = v_mp
+            col_donut, col_tabela_classes = st.columns([1.2, 1])
 
-                dados_grafico_proj.append({
-                    "Ano": str(yr),
-                    "Patrimônio Projetado": v_exibir,
-                    "Texto_Barra": f"R$ {v_exibir:,.0f}".replace(",", ".")
-                })
-
-            df_proj_display = pd.DataFrame(dados_grafico_proj)
-
-            if not df_proj_display.empty:
-                v_final_proj = df_proj_display.iloc[-1]["Patrimônio Projetado"]
-                v_inicial_proj = df_proj_display.iloc[0]["Patrimônio Projetado"]
-                lucro_proj = v_final_proj - v_inicial_proj
-                
-                # Renda Passiva Estimada em MXRF11 (~0.9% ao mês em dividendos isentos)
-                if "MXRF11" in ativo_proj_sel:
-                    renda_m_est = v_final_proj * 0.009
-                else:
-                    renda_m_est = v_final_proj * 0.008
-
-                kp1, kp2, kp3, kp4 = st.columns(4)
-                with kp1:
-                    st.metric(f"Saldo em {ano_alvo_proj}", f"R$ {v_final_proj:,.2f}")
-                with kp2:
-                    st.metric("Saldo Inicial (2026)", f"R$ {v_inicial_proj:,.2f}")
-                with kp3:
-                    st.metric("Crescimento Aportado/Acumulado", f"R$ {lucro_proj:+,.2f}", delta=f"+{((lucro_proj/v_inicial_proj)*100):.1f}%")
-                with kp4:
-                    st.metric("Renda Passiva Mensal Est.", f"R$ {renda_m_est:,.2f}/mês")
-
-                st.markdown("<br>", unsafe_allow_html=True)
-
-                fig_proj = px.bar(
-                    df_proj_display,
-                    x="Ano",
-                    y="Patrimônio Projetado",
-                    text="Texto_Barra",
-                    color="Patrimônio Projetado",
-                    color_continuous_scale="Purples",
-                    title=f"📈 Curva de Crescimento Projetada: {ativo_proj_sel}"
+            with col_donut:
+                fig_donut = px.pie(
+                    df_classes,
+                    names="Classe",
+                    values="Valor",
+                    hole=0.55,
+                    title=f"Alocação em {ultimo_mes.upper()}",
+                    color_discrete_sequence=px.colors.qualitative.Set2
                 )
-                fig_proj.update_layout(
-                    plotly_theme["layout"],
-                    height=380,
-                    coloraxis_showscale=False,
-                    margin=dict(l=20, r=20, t=40, b=20)
-                )
-                fig_proj.update_traces(textposition="outside", textfont=dict(size=11, color="#E5E7EB"))
-                fig_proj.update_yaxes(tickprefix="R$ ", tickformat="~s")
-                st.plotly_chart(fig_proj, use_container_width=True, config=plotly_config)
+                fig_donut.update_traces(textinfo="percent+label", hovertemplate="<b>%{label}</b><br>Saldo: R$ %{value:,.2f}<br>Participação: %{percent:.2f}%")
+                fig_donut.update_layout(plotly_theme["layout"], height=360, showlegend=False, margin=dict(l=20, r=20, t=40, b=20))
+                st.plotly_chart(fig_donut, use_container_width=True, config=plotly_config)
 
-        # --- 4. DETECTOR DE ANOMALIAS ---
-        with aba_ia4:
-            st.markdown("##### 🚨 Detecção de Anomalias & Gastos Fora do Padrão")
-            df_desp_m = df_despesas[df_despesas["Mês"] == ultimo_mes].copy()
-            
-            if not df_desp_m.empty and df_desp_m["Valor"].sum() > 0:
-                media_desp = df_desp_m[df_desp_m["Valor"] > 0]["Valor"].mean()
-                anomalias = df_desp_m[df_desp_m["Valor"] > (media_desp * 1.5)]
+            with col_tabela_classes:
+                st.markdown("###### 📑 Resumo da Estrutura de Alocação")
+                df_classes_display = df_classes.sort_values(by="Valor", ascending=False).copy()
+                df_classes_display["Valor Formatado"] = df_classes_display["Valor"].apply(lambda v: f"R$ {v:,.2f}")
+                df_classes_display["% Carteira"] = df_classes_display["Percentual"].apply(lambda p: f"{p:.2f}%")
                 
-                if not anomalias.empty:
-                    st.warning(f"⚠️ **A IA identificou {len(anomalias)} categorias com gastos acima de 150% da média do seu orçamento:**")
-                    st.dataframe(anomalias[["Categoria", "Valor"]].rename(columns={"Valor": "Valor do Mês (R$)"}), use_container_width=True, hide_index=True)
-                else:
-                    st.success("🟢 Nenhuma anomalia crítica de gastos identificada no período selecionado.")
-            else:
-                st.info("Sem dados de despesas suficientes no mês para calcular anomalias.")
+                st.dataframe(
+                    df_classes_display[["Classe", "Valor Formatado", "% Carteira"]],
+                    use_container_width=True,
+                    hide_index=True
+                )
 
-        # --- 5. REBALANCEAMENTO DE CARTEIRA ---
-        with aba_ia5:
-            st.markdown("##### 🎯 Sugestão Inteligente de Rebalanceamento")
-            st.caption("A IA calcula onde direcionar seu próximo aporte para manter o equilíbrio da carteira:")
-            
-            col_r1, col_r2, col_r3 = st.columns(3)
-            col_r1.metric("Pós-Fixado (Liquidez)", "42%", "Manter / Adequado")
-            col_r2.metric("Inflação (IPCA+ 2050)", "38%", "+ R$ 1.200 (Sugerido Aporte)")
-            col_r3.metric("Renda Variável / FIIs", "20%", "+ R$ 800 (Sugerido Aporte)")
+        # =========================================================
+        # TAB 4: HUB DE INTELIGÊNCIA ARTIFICIAL & PROJEÇÕES PREDITIVAS
+        # =========================================================
+        with tab_ia_hub:
+            st.markdown("### 🤖 Hub de Inteligência & Projeções Preditivas")
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Simulação dinâmica conectada com as abas do Google Sheets e análise algorítmica</p>", unsafe_allow_html=True)
 
-        # --- 6. LEITOR DE COMPROVANTES (OCR) ---
-        with aba_ia6:
-            st.markdown("##### 📸 Leitor Automático de Comprovantes / Notas Fiscais")
-            uploaded_file = st.file_uploader("Envie uma foto ou PDF de um comprovante para teste:", type=["jpg", "png", "pdf"])
-            if uploaded_file is not None:
-                with st.spinner("Processando Imagem com Visão por Computador..."):
-                    time.sleep(1.2)
-                    st.success("✅ Comprovante Lido com Sucesso!")
-                    st.json({
-                        "Estabelecimento": "RESTAURANTE / BAR EXEMPLO",
-                        "Data": "2026-10-13",
-                        "Valor Total": "R$ 145,90",
-                        "Categoria Sugerida": "Restaurantes & Bares",
-                        "Status": "Pronto para enviar ao Google Sheets"
+            aba_ia1, aba_ia2, aba_ia3, aba_ia4, aba_ia5 = st.tabs([
+                "🔮 Projeções Patrimoniais",
+                "💬 Copilot Financeiro",
+                "📜 Diagnóstico Executivo",
+                "🚨 Detector de Anomalias",
+                "🎯 Rebalanceamento"
+            ])
+
+            # --- 1. PROJEÇÕES PREDITIVAS REALISTAS ---
+            with aba_ia1:
+                st.markdown("##### 🔮 Simulação de Projeção Dinâmica do Patrimônio")
+                st.caption("Cálculos configurados conforme regras e contratos das abas reais da planilha:")
+
+                opcoes_ativos_proj = [
+                    "🌐 Visão Consolidada (Carteira Toda)",
+                    "🏛️ C6 - Tesouro IPCA+ 2050",
+                    "🏛️ C6 - Tesouro 2035 (Juros Semestrais)",
+                    "📈 C6 - MXRF11 (Com Média de Aportes do Histórico)",
+                    "🔒 C6 - CDB IPCA + 7,9% (Venc. 19/04/2027)",
+                    "📱 Mercado Pago (120% CDI)"
+                ]
+
+                col_fj1, col_fj2 = st.columns([2, 1])
+                with col_fj1:
+                    ativo_proj_sel = st.selectbox("Ativo / Visão para Simular:", opcoes_ativos_proj)
+                with col_fj2:
+                    ano_alvo_proj = st.slider("Horizonte (Ano Alvo):", 2026, 2050, 2035)
+
+                dados_grafico_proj = []
+                ano_corrente = 2026
+
+                saldo_2050 = 15000.0
+                try:
+                    df_2050 = load_sheet_by_gid(SPREADSHEET_ID, "1265273668")
+                    val_investido_2050 = pd.to_numeric(df_2050.iloc[:, 3].apply(parse_br_val), errors='coerce').sum()
+                    if val_investido_2050 > 0: saldo_2050 = val_investido_2050
+                except Exception: pass
+
+                saldo_2035 = 12000.0
+                try:
+                    df_2035 = load_sheet_by_gid(SPREADSHEET_ID, "1832710448")
+                    val_investido_2035 = pd.to_numeric(df_2035.iloc[:, 1].apply(parse_br_val), errors='coerce').sum()
+                    if val_investido_2035 > 0: saldo_2035 = val_investido_2035
+                except Exception: pass
+
+                cotas_mxrf = 500
+                media_aporte_mensal_mxrf = 300.0
+                
+                try:
+                    df_mxrf = load_sheet_by_gid(SPREADSHEET_ID, "1282765175")
+                    df_mxrf_clean = df_mxrf.dropna(how='all')
+                    
+                    total_cotas_sheet = pd.to_numeric(df_mxrf_clean.iloc[:, 1], errors='coerce').sum()
+                    if total_cotas_sheet > 0: cotas_mxrf = total_cotas_sheet
+                    
+                    valores_aportados = pd.to_numeric(df_mxrf_clean.iloc[:, 3].apply(parse_br_val), errors='coerce').dropna()
+                    if len(valores_aportados) > 0: media_aporte_mensal_mxrf = valores_aportados.mean()
+                except Exception: pass
+
+                saldo_mxrf_inicial = cotas_mxrf * mxrf11_preco_num
+                saldo_cdb_ipca = 5000.0
+                saldo_mp = 8000.0
+
+                for yr in range(ano_corrente, ano_alvo_proj + 1):
+                    yrs_elapsed = yr - ano_corrente
+                    
+                    v_2050 = saldo_2050 * ((1 + 0.102) ** yrs_elapsed) + (yrs_elapsed * 12 * 300)
+                    
+                    if yr <= 2035:
+                        v_2035 = saldo_2035 * ((1 + 0.095) ** yrs_elapsed)
+                    else:
+                        v_2035 = saldo_2035 * ((1 + 0.095) ** (2035 - ano_corrente))
+                    
+                    v_mxrf = saldo_mxrf_inicial + (media_aporte_mensal_mxrf * 12 * yrs_elapsed)
+                    
+                    if yr <= 2027:
+                        v_cdb = saldo_cdb_ipca * ((1 + 0.119) ** yrs_elapsed)
+                    else:
+                        v_cdb = saldo_cdb_ipca * ((1 + 0.119) ** (2027 - ano_corrente))
+                    
+                    v_mp = saldo_mp * ((1 + (cdi_num * 1.20 / 100)) ** yrs_elapsed)
+
+                    if "Consolidada" in ativo_proj_sel: v_exibir = v_2050 + v_2035 + v_mxrf + v_cdb + v_mp
+                    elif "2050" in ativo_proj_sel: v_exibir = v_2050
+                    elif "2035" in ativo_proj_sel: v_exibir = v_2035
+                    elif "MXRF11" in ativo_proj_sel: v_exibir = v_mxrf
+                    elif "CDB" in ativo_proj_sel: v_exibir = v_cdb
+                    else: v_exibir = v_mp
+
+                    dados_grafico_proj.append({
+                        "Ano": str(yr),
+                        "Patrimônio Projetado": v_exibir,
+                        "Texto_Barra": f"R$ {v_exibir:,.0f}".replace(",", ".")
                     })
 
+                df_proj_display = pd.DataFrame(dados_grafico_proj)
+
+                if not df_proj_display.empty:
+                    v_final_proj = df_proj_display.iloc[-1]["Patrimônio Projetado"]
+                    v_inicial_proj = df_proj_display.iloc[0]["Patrimônio Projetado"]
+                    lucro_proj = v_final_proj - v_inicial_proj
+                    
+                    if "MXRF11" in ativo_proj_sel: renda_m_est = v_final_proj * 0.009
+                    else: renda_m_est = v_final_proj * 0.008
+
+                    kp1, kp2, kp3, kp4 = st.columns(4)
+                    kp1.metric(f"Saldo em {ano_alvo_proj}", f"R$ {v_final_proj:,.2f}")
+                    kp2.metric("Saldo Inicial (2026)", f"R$ {v_inicial_proj:,.2f}")
+                    kp3.metric("Crescimento Aportado", f"R$ {lucro_proj:+,.2f}", delta=f"+{((lucro_proj/v_inicial_proj)*100):.1f}%")
+                    kp4.metric("Renda Passiva Est.", f"R$ {renda_m_est:,.2f}/mês")
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+
+                    fig_proj = px.bar(
+                        df_proj_display,
+                        x="Ano", y="Patrimônio Projetado",
+                        text="Texto_Barra",
+                        color="Patrimônio Projetado",
+                        color_continuous_scale="Purples",
+                        title=f"📈 Projeção Patrimonial: {ativo_proj_sel}"
+                    )
+                    fig_proj.update_layout(
+                        plotly_theme["layout"],
+                        height=380,
+                        coloraxis_showscale=False,
+                        margin=dict(l=20, r=20, t=40, b=20)
+                    )
+                    fig_proj.update_traces(textposition="outside", textfont=dict(size=11, color="#C9D1D9"))
+                    fig_proj.update_yaxes(tickprefix="R$ ", tickformat="~s")
+                    st.plotly_chart(fig_proj, use_container_width=True, config=plotly_config)
+
+            # --- 2. COPILOT FINANCEIRO DE LINGUAGEM NATURAL ---
+            with aba_ia2:
+                st.markdown("##### 💬 Assistente Virtual de Finanças")
+                q_user = st.text_input("Consulte seus indicadores ou despesas:", placeholder="Ex: Qual foi meu maior gasto em outubro?")
+                
+                if q_user:
+                    q_clean = q_user.lower()
+                    with st.spinner("Processando base de dados do Google Sheets..."):
+                        time.sleep(0.4)
+                        if "maior despesa" in q_clean or "maior gasto" in q_clean:
+                            df_desp_val = df_despesas[df_despesas["Mês"] == ultimo_mes].sort_values("Valor", ascending=False)
+                            if not df_desp_val.empty:
+                                top_desp = df_desp_val.iloc[0]
+                                st.success(f"🤖 **Copilot:** Em **{ultimo_mes.upper()}**, a sua maior despesa cadastrada foi na categoria **{top_desp['Categoria']}** no valor de **R$ {top_desp['Valor']:,.2f}**.")
+                            else: st.info("Sem despesas registradas no mês selecionado.")
+                        elif "receita" in q_clean or "ganhei" in q_clean:
+                            rec_m = df_receitas[df_receitas["Mês"] == ultimo_mes]["Valor"].sum()
+                            st.info(f"🤖 **Copilot:** A receita total acumulada em **{ultimo_mes.upper()}** foi de **R$ {rec_m:,.2f}**.")
+                        else:
+                            taxa_poup = ((total_rec - total_desp) / total_rec * 100) if total_rec > 0 else 0
+                            st.markdown(f"""
+                            🤖 **Resumo dos Indicadores:**
+                            - **Receita Total:** R$ {total_rec:,.2f}
+                            - **Despesas Operacionais:** R$ {total_desp:,.2f}
+                            - **Taxa de Sobra Líquida:** {taxa_poup:.1f}% da renda.
+                            - **Patrimônio Atual ({ultimo_mes.upper()}):** R$ {patrimonio_total_ultimo_mes:,.2f}
+                            """)
+
+            # --- 3. DIAGNÓSTICO EXECUTIVO MENSAL ---
+            with aba_ia3:
+                taxa_poup = ((total_rec - total_desp) / total_rec * 100) if total_rec > 0 else 0
+                poup_status = "🟢 Excelente (Acima da meta de 20%)" if taxa_poup >= 20 else "🟡 Atencioso (Abaixo da meta de 20%)"
+
+                st.markdown(f"""
+                <div class="ai-box">
+                    <h4 style="margin-top:0; color:#58A6FF; font-weight:700;">📊 Relatório do Período ({ultimo_mes.upper()} / {ano_selecionado})</h4>
+                    <ul>
+                        <li><b>Retenção de Capital:</b> {taxa_poup:.1f}% das receitas foram preservadas. ({poup_status})</li>
+                        <li><b>Variação de Despesas MoM:</b> {var_desp_pct:+.1f}%</li>
+                        <li><b>Crescimento Patrimonial MoM:</b> {var_patrimonio_pct:+.1f}%</li>
+                        <li><b>Direcionamento Recomendado:</b> Manter foco na alocação em IPCA+ para preservação do poder de compra real.</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # --- 4. DETECTOR DE ANOMALIAS ---
+            with aba_ia4:
+                st.markdown("##### 🚨 Identificação de Custos Atípicos")
+                df_desp_m = df_despesas[df_despesas["Mês"] == ultimo_mes].copy()
+                if not df_desp_m.empty and df_desp_m["Valor"].sum() > 0:
+                    media_desp = df_desp_m[df_desp_m["Valor"] > 0]["Valor"].mean()
+                    anomalias = df_desp_m[df_desp_m["Valor"] > (media_desp * 1.5)]
+                    if not anomalias.empty:
+                        st.warning(f"⚠️ Identificadas {len(anomalias)} categorias com despesas acima de 150% da média do período:")
+                        st.dataframe(anomalias[["Categoria", "Valor"]].rename(columns={"Valor": "Valor (R$)"}), use_container_width=True, hide_index=True)
+                    else: st.success("🟢 Nenhuma anomalia crítica de despesas encontrada no período.")
+                else: st.info("Sem lançamentos de despesas suficientes para cálculo no período.")
+
+            # --- 5. REBALANCEAMENTO DE CARTEIRA ---
+            with aba_ia5:
+                st.markdown("##### 🎯 Sugestão Algorítmica de Alocação")
+                col_r1, col_r2, col_r3 = st.columns(3)
+                col_r1.metric("Pós-Fixado (Liquidez)", "42%", "Alocação Adequada")
+                col_r2.metric("Inflação (IPCA+ 2050)", "38%", "+ R$ 1.200 (Sugerido)")
+                col_r3.metric("Renda Variável / FIIs", "20%", "+ R$ 800 (Sugerido)")
+
     else:
-        st.warning("⚠️ Selecione pelo menos um mês no filtro para visualizar os dados.")
+        st.warning("⚠️ Selecione ao menos um mês no filtro para carregar os relatórios.")
 
 except Exception as e:
-    st.error(f"Aba '{ano_selecionado}' não encontrada ou sem dados no Google Sheets.")
+    st.error(f"Não foi possível acessar os dados do ano '{ano_selecionado}'. Verifique a estrutura da planilha.")
