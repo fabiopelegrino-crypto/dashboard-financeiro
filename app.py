@@ -809,6 +809,66 @@ try:
                 
                 st.dataframe(df_fat_display, use_container_width=True, hide_index=True)
 
+                # =========================================================
+                # 🆕 ANÁLISE COMPLETA POR CATEGORIA DA FATURA
+                # =========================================================
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("##### 🍕 Visão Geral dos Gastos por Categoria da Fatura")
+
+                if "Categoria" in df_fatura_compras.columns:
+                    df_fatura_compras["Categoria_Limpa"] = df_fatura_compras["Categoria"].apply(simplificar_categoria_fatura)
+                    
+                    # Agrupamento e métricas por categoria
+                    df_cat_summary = df_fatura_compras.groupby("Categoria_Limpa").agg(
+                        Valor_Total=("Valor_Num", "sum"),
+                        Qtd_Lançamentos=("Valor_Num", "count")
+                    ).reset_index()
+
+                    df_cat_summary = df_cat_summary[df_cat_summary["Categoria_Limpa"] != "-"].sort_values(by="Valor_Total", ascending=False)
+                    
+                    total_fatura_sum = df_cat_summary["Valor_Total"].sum()
+                    df_cat_summary["% do Cartão"] = (df_cat_summary["Valor_Total"] / total_fatura_sum) * 100
+
+                    col_f_donut, col_f_topico = st.columns([1.1, 1])
+
+                    with col_f_donut:
+                        fig_fat_donut = px.pie(
+                            df_cat_summary,
+                            names="Categoria_Limpa",
+                            values="Valor_Total",
+                            hole=0.50,
+                            title="Distribuição Percentual da Fatura",
+                            color_discrete_sequence=px.colors.qualitative.Pastel
+                        )
+                        fig_fat_donut.update_traces(
+                            textinfo="percent+label",
+                            hovertemplate="<b>%{label}</b><br>Total: R$ %{value:,.2f}<br>Participação: %{percent:.1%}"
+                        )
+                        fig_fat_donut.update_layout(
+                            plotly_theme["layout"],
+                            height=360,
+                            showlegend=False,
+                            margin=dict(l=20, r=20, t=40, b=20)
+                        )
+                        st.plotly_chart(fig_fat_donut, use_container_width=True, config=plotly_config)
+
+                    with col_f_topico:
+                        st.markdown("###### 📑 Resumo das Categorias")
+                        
+                        df_cat_display = df_cat_summary.copy()
+                        df_cat_display["Valor (R$)"] = df_cat_display["Valor_Total"].apply(lambda v: f"R$ {v:,.2f}")
+                        df_cat_display["% Fatura"] = df_cat_display["% do Cartão"].apply(lambda p: f"{p:.1f}%")
+                        df_cat_display.rename(columns={
+                            "Categoria_Limpa": "Categoria",
+                            "Qtd_Lançamentos": "Compras"
+                        }, inplace=True)
+
+                        st.dataframe(
+                            df_cat_display[["Categoria", "Valor (R$)", "% Fatura", "Compras"]],
+                            use_container_width=True,
+                            hide_index=True
+                        )
+
         except Exception as e_fat:
             st.warning("⚠️ Não foi possível carregar os dados da Fatura C6. Por favor, confirme se o compartilhamento da planilha está definido para 'Qualquer pessoa com o link'.")
 
