@@ -1372,33 +1372,34 @@ try:
                             except Exception as ex_gspread:
                                 st.error(f"Erro ao salvar na planilha: {str(ex_gspread)}")
 
-            # --- SUB-TAB B: APORTES EM ATIVOS (ABAS INDIVIDUAIS COM CAMPOS ESPECÍFICOS) ---
+            # --- SUB-TAB B: APORTES EM ATIVOS (CÁLCULO E EXIBIÇÃO REATIVA EM TEMPO REAL) ---
             with sub_tab_aportes:
                 st.markdown("##### 🏛️ Lançamento de Aporte nas Abas Individuais dos Ativos")
                 
-                # Apenas IPCA +2050 e MXRF11 disponíveis (Tesouro 2035 removido)
                 ativo_alvo = st.selectbox("Selecione o Ativo:", ["IPCA +2050", "MXRF11"])
                 
-                with st.form("form_aporte_ativo_dinamico"):
+                if ativo_alvo == "IPCA +2050":
+                    st.caption("📌 **Campos específicos para a aba IPCA +2050**")
+                    ca1, ca2, ca3 = st.columns(3)
+                    with ca1:
+                        dt_app = st.date_input("Data da Aplicação:", key="dt_ipca")
+                    with ca2:
+                        qtd_titulos = st.number_input("Quantidade de Títulos (A):", min_value=0.0, step=0.01, format="%.2f", key="qtd_ipca")
+                    with ca3:
+                        preco_titulo = st.number_input("Preço do Título (R$) (B):", min_value=0.0, step=10.0, format="%.2f", key="pr_ipca")
                     
-                    if ativo_alvo == "IPCA +2050":
-                        st.caption("📌 **Campos específicos para a aba IPCA +2050**")
-                        ca1, ca2, ca3 = st.columns(3)
-                        with ca1:
-                            dt_app = st.date_input("Data da Aplicação:")
-                        with ca2:
-                            qtd_titulos = st.number_input("Quantidade de Títulos (A):", min_value=0.0, step=0.01, format="%.2f")
-                        with ca3:
-                            preco_titulo = st.number_input("Preço do Título (R$) (B):", min_value=0.0, step=10.0, format="%.2f")
-                        
-                        ca4, ca5 = st.columns(2)
-                        with ca4:
-                            # Cálculo automático A x B
-                            val_investido_calc = qtd_titulos * preco_titulo
-                            st.markdown(f"<div style='padding-top:10px;'><b>Valor Investido (R$) (A x B):</b> <br><span style='font-size:1.3rem; color:#3FB950; font-weight:700;'>R$ {val_investido_calc:,.2f}</span></div>", unsafe_allow_html=True)
-                        with ca5:
-                            rentabilidade_contratada = st.text_input("Rentabilidade Contratada:", placeholder="Ex: IPCA + 6,85%")
-
+                    # Cálculo reativo fora do form
+                    val_investido_calc_ipca = qtd_titulos * preco_titulo
+                    
+                    st.markdown(f"""
+                    <div style='background-color: #161B22; border: 1px solid #30363D; border-radius: 8px; padding: 12px 16px; margin-top: 10px; margin-bottom: 15px;'>
+                        <span style='color: #8B949E; font-size: 0.9rem; font-weight: 600;'>Valor Investido (R$) (A x B):</span>
+                        <span style='font-size: 1.35rem; color: #3FB950; font-weight: 800; margin-left: 15px;'>R$ {val_investido_calc_ipca:,.2f}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    with st.form("form_ipca_submit"):
+                        rentabilidade_contratada = st.text_input("Rentabilidade Contratada:", placeholder="Ex: IPCA + 6,85%")
                         btn_salvar_ipca = st.form_submit_button("💾 Registrar Aporte no IPCA +2050", use_container_width=True)
 
                         if btn_salvar_ipca:
@@ -1412,30 +1413,38 @@ try:
                                         ws_ativo = sh.worksheet("IPCA +2050")
                                         
                                         dt_str = dt_app.strftime("%d/%m/%Y")
-                                        nova_linha = [dt_str, qtd_titulos, preco_titulo, val_investido_calc, rentabilidade_contratada]
+                                        nova_linha = [dt_str, qtd_titulos, preco_titulo, val_investido_calc_ipca, rentabilidade_contratada]
                                         
                                         ws_ativo.append_row(nova_linha)
                                         st.cache_data.clear()
-                                        st.success(f"✅ Aporte no IPCA +2050 (R$ {val_investido_calc:,.2f}) registrado com sucesso!")
+                                        st.success(f"✅ Aporte no IPCA +2050 (R$ {val_investido_calc_ipca:,.2f}) registrado com sucesso!")
                                         time.sleep(1)
                                         st.rerun()
 
                                 except Exception as ex_ipca:
                                     st.error(f"Erro ao registrar aporte no IPCA +2050: {str(ex_ipca)}")
 
-                    elif ativo_alvo == "MXRF11":
-                        st.caption("📌 **Campos específicos para a aba MXRF11**")
-                        cm1, cm2, cm3 = st.columns(3)
-                        with cm1:
-                            dt_mxrf = st.date_input("Data:")
-                        with cm2:
-                            cotas_mxrf_in = st.number_input("Cotas (A):", min_value=0.0, step=1.0, format="%.2f")
-                        with cm3:
-                            val_cota_in = st.number_input("Valor Cota (R$) (B):", min_value=0.0, step=0.1, format="%.2f", value=float(mxrf11_preco_num))
+                elif ativo_alvo == "MXRF11":
+                    st.caption("📌 **Campos específicos para a aba MXRF11**")
+                    cm1, cm2, cm3 = st.columns(3)
+                    with cm1:
+                        dt_mxrf = st.date_input("Data:", key="dt_mx")
+                    with cm2:
+                        cotas_mxrf_in = st.number_input("Cotas (A):", min_value=0.0, step=1.0, format="%.2f", value=4.00, key="ct_mx")
+                    with cm3:
+                        val_cota_in = st.number_input("Valor Cota (R$) (B):", min_value=0.0, step=0.01, format="%.2f", value=float(mxrf11_preco_num), key="pr_mx")
 
-                        val_inv_mxrf_calc = cotas_mxrf_in * val_cota_in
-                        st.markdown(f"<div style='padding-top:10px; margin-bottom:15px;'><b>Valor Investido (R$) (A x B):</b> <span style='font-size:1.3rem; color:#3FB950; font-weight:700; margin-left:15px;'>R$ {val_inv_mxrf_calc:,.2f}</span></div>", unsafe_allow_html=True)
+                    # Cálculo reativo fora do form
+                    val_inv_mxrf_calc = cotas_mxrf_in * val_cota_in
 
+                    st.markdown(f"""
+                    <div style='background-color: #161B22; border: 1px solid #30363D; border-radius: 8px; padding: 12px 16px; margin-top: 10px; margin-bottom: 15px;'>
+                        <span style='color: #8B949E; font-size: 0.9rem; font-weight: 600;'>Valor Investido (R$) (A x B):</span>
+                        <span style='font-size: 1.35rem; color: #3FB950; font-weight: 800; margin-left: 15px;'>R$ {val_inv_mxrf_calc:,.2f}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    with st.form("form_mxrf_submit"):
                         btn_salvar_mxrf = st.form_submit_button("💾 Registrar Aporte no MXRF11", use_container_width=True)
 
                         if btn_salvar_mxrf:
