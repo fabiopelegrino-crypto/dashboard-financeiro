@@ -422,7 +422,7 @@ try:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 4. TRATAMENTO DOS DADOS FINANCEIROS (MAPEAMENTO FIEL À PLANILHA)
+    # 4. TRATAMENTO DOS DADOS FINANCEIROS
     # -------------------------------------------------------------
     if mes_selecionado:
         mes_selecionado = [m for m in meses_ordem_cronologica if m in mes_selecionado]
@@ -447,10 +447,9 @@ try:
 
         df_melted["Valor"] = df_melted["Valor_Raw"].apply(parse_br_val)
         
-        # Mapeamento estrito conforme o layout real:
         df_receitas = df_melted[df_melted["linha_excel"].isin([2, 3])]
         df_despesas = df_melted[df_melted["linha_excel"].isin([5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17])]
-        df_saldo_investido = df_melted[df_melted["linha_excel"] == 16] # Valor do aporte tirado do salário
+        df_saldo_investido = df_melted[df_melted["linha_excel"] == 16]
         
         df_carteira_investimentos = df_melted[
             (df_melted["linha_excel"].between(22, 30)) & 
@@ -1291,7 +1290,6 @@ try:
                     st.markdown("##### 🔴 Despesas Operacionais e Aporte do Mês")
                     cd1, cd2, cd3 = st.columns(3)
                     
-                    # MAPEAMENTO EXATO DA PLANILHA
                     dict_despesas = {
                         5: "(-) Energia",
                         6: "(-) Cartão C6",
@@ -1317,7 +1315,6 @@ try:
                     st.markdown("##### 🔵 Investimentos / Ativos (Saldos da Carteira)")
                     ci1, ci2, ci3 = st.columns(3)
 
-                    # MAPEAMENTO EXATO DOS ATIVOS DA CARTEIRA
                     dict_invest = {
                         22: "C6 - CDB C6 Prefixado (15,7% a.a.)",
                         23: "Nubank 115% CDI (líquido)",
@@ -1375,46 +1372,93 @@ try:
                             except Exception as ex_gspread:
                                 st.error(f"Erro ao salvar na planilha: {str(ex_gspread)}")
 
-            # --- SUB-TAB B: APORTES EM ATIVOS (ABAS INDIVIDUAIS) ---
+            # --- SUB-TAB B: APORTES EM ATIVOS (ABAS INDIVIDUAIS COM CAMPOS ESPECÍFICOS) ---
             with sub_tab_aportes:
                 st.markdown("##### 🏛️ Lançamento de Aporte nas Abas Individuais dos Ativos")
                 
-                with st.form("form_aporte_ativo"):
-                    ativo_alvo = st.selectbox("Selecione o Ativo:", ["Tesouro 2035", "IPCA +2050", "MXRF11"])
+                # Apenas IPCA +2050 e MXRF11 disponíveis (Tesouro 2035 removido)
+                ativo_alvo = st.selectbox("Selecione o Ativo:", ["IPCA +2050", "MXRF11"])
+                
+                with st.form("form_aporte_ativo_dinamico"):
                     
-                    ca1, ca2, ca3, ca4 = st.columns(4)
-                    with ca1:
-                        dt_aporte = st.date_input("Data do Aporte:")
-                    with ca2:
-                        qtd_aporte = st.number_input("Quantidade / Cotas:", min_value=0.0, step=1.0, format="%.2f")
-                    with ca3:
-                        pu_taxa = st.number_input("Preço Unitário / Taxa (R$ ou %):", min_value=0.0, step=0.1, format="%.2f")
-                    with ca4:
-                        v_total_aporte = st.number_input("Valor Total Aportado (R$):", min_value=0.0, step=50.0, format="%.2f")
+                    if ativo_alvo == "IPCA +2050":
+                        st.caption("📌 **Campos específicos para a aba IPCA +2050**")
+                        ca1, ca2, ca3 = st.columns(3)
+                        with ca1:
+                            dt_app = st.date_input("Data da Aplicação:")
+                        with ca2:
+                            qtd_titulos = st.number_input("Quantidade de Títulos (A):", min_value=0.0, step=0.01, format="%.2f")
+                        with ca3:
+                            preco_titulo = st.number_input("Preço do Título (R$) (B):", min_value=0.0, step=10.0, format="%.2f")
+                        
+                        ca4, ca5 = st.columns(2)
+                        with ca4:
+                            # Cálculo automático A x B
+                            val_investido_calc = qtd_titulos * preco_titulo
+                            st.markdown(f"<div style='padding-top:10px;'><b>Valor Investido (R$) (A x B):</b> <br><span style='font-size:1.3rem; color:#3FB950; font-weight:700;'>R$ {val_investido_calc:,.2f}</span></div>", unsafe_allow_html=True)
+                        with ca5:
+                            rentabilidade_contratada = st.text_input("Rentabilidade Contratada:", placeholder="Ex: IPCA + 6,85%")
 
-                    btn_salvar_aporte = st.form_submit_button("💾 Registrar Aporte no Ativo", use_container_width=True)
+                        btn_salvar_ipca = st.form_submit_button("💾 Registrar Aporte no IPCA +2050", use_container_width=True)
 
-                    if btn_salvar_aporte:
-                        gc = get_gspread_client()
-                        if gc is None:
-                            st.error("🚨 Erro na conexão com o Google Sheets.")
-                        else:
-                            try:
-                                with st.spinner(f"Registrando aporte na aba '{ativo_alvo}'..."):
-                                    sh = gc.open_by_key(SPREADSHEET_ID)
-                                    ws_ativo = sh.worksheet(ativo_alvo)
-                                    
-                                    dt_str = dt_aporte.strftime("%d/%m/%Y")
-                                    nova_linha = [dt_str, qtd_aporte, pu_taxa, v_total_aporte]
-                                    
-                                    ws_ativo.append_row(nova_linha)
-                                    st.cache_data.clear()
-                                    st.success(f"✅ Aporte de R$ {v_total_aporte:,.2f} registrado com sucesso na aba **{ativo_alvo}**!")
-                                    time.sleep(1)
-                                    st.rerun()
+                        if btn_salvar_ipca:
+                            gc = get_gspread_client()
+                            if gc is None:
+                                st.error("🚨 Erro na conexão com o Google Sheets.")
+                            else:
+                                try:
+                                    with st.spinner("Registrando aporte na aba 'IPCA +2050'..."):
+                                        sh = gc.open_by_key(SPREADSHEET_ID)
+                                        ws_ativo = sh.worksheet("IPCA +2050")
+                                        
+                                        dt_str = dt_app.strftime("%d/%m/%Y")
+                                        nova_linha = [dt_str, qtd_titulos, preco_titulo, val_investido_calc, rentabilidade_contratada]
+                                        
+                                        ws_ativo.append_row(nova_linha)
+                                        st.cache_data.clear()
+                                        st.success(f"✅ Aporte no IPCA +2050 (R$ {val_investido_calc:,.2f}) registrado com sucesso!")
+                                        time.sleep(1)
+                                        st.rerun()
 
-                            except Exception as ex_ap:
-                                st.error(f"Erro ao registrar aporte: {str(ex_ap)}")
+                                except Exception as ex_ipca:
+                                    st.error(f"Erro ao registrar aporte no IPCA +2050: {str(ex_ipca)}")
+
+                    elif ativo_alvo == "MXRF11":
+                        st.caption("📌 **Campos específicos para a aba MXRF11**")
+                        cm1, cm2, cm3 = st.columns(3)
+                        with cm1:
+                            dt_mxrf = st.date_input("Data:")
+                        with cm2:
+                            cotas_mxrf_in = st.number_input("Cotas (A):", min_value=0.0, step=1.0, format="%.2f")
+                        with cm3:
+                            val_cota_in = st.number_input("Valor Cota (R$) (B):", min_value=0.0, step=0.1, format="%.2f", value=float(mxrf11_preco_num))
+
+                        val_inv_mxrf_calc = cotas_mxrf_in * val_cota_in
+                        st.markdown(f"<div style='padding-top:10px; margin-bottom:15px;'><b>Valor Investido (R$) (A x B):</b> <span style='font-size:1.3rem; color:#3FB950; font-weight:700; margin-left:15px;'>R$ {val_inv_mxrf_calc:,.2f}</span></div>", unsafe_allow_html=True)
+
+                        btn_salvar_mxrf = st.form_submit_button("💾 Registrar Aporte no MXRF11", use_container_width=True)
+
+                        if btn_salvar_mxrf:
+                            gc = get_gspread_client()
+                            if gc is None:
+                                st.error("🚨 Erro na conexão com o Google Sheets.")
+                            else:
+                                try:
+                                    with st.spinner("Registrando aporte na aba 'MXRF11'..."):
+                                        sh = gc.open_by_key(SPREADSHEET_ID)
+                                        ws_ativo = sh.worksheet("MXRF11")
+                                        
+                                        dt_str = dt_mxrf.strftime("%d/%m/%Y")
+                                        nova_linha = [dt_str, cotas_mxrf_in, val_cota_in, val_inv_mxrf_calc]
+                                        
+                                        ws_ativo.append_row(nova_linha)
+                                        st.cache_data.clear()
+                                        st.success(f"✅ Aporte no MXRF11 (R$ {val_inv_mxrf_calc:,.2f}) registrado com sucesso!")
+                                        time.sleep(1)
+                                        st.rerun()
+
+                                except Exception as ex_mxrf:
+                                    st.error(f"Erro ao registrar aporte no MXRF11: {str(ex_mxrf)}")
 
     else:
         st.warning("⚠️ Selecione ao menos um mês no filtro para carregar os relatórios.")
