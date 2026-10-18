@@ -7,6 +7,7 @@ import requests
 import yfinance as yf
 import urllib.parse
 import os
+import gspread
 
 # -------------------------------------------------------------
 # 1. CONFIGURAÇÃO DA PÁGINA & DESIGN SYSTEM EXECUTIVE
@@ -327,7 +328,7 @@ def fetch_market_indicators():
 selic_str, cdi_str, mxrf11_price_str, mxrf11_var_html, cdi_num, mxrf11_preco_num = fetch_market_indicators()
 
 # -------------------------------------------------------------
-# 2. CONEXÃO COM GOOGLE SHEETS
+# 2. CONEXÃO COM GOOGLE SHEETS (LEITURA & ESCRITA VIA GSPREAD)
 # -------------------------------------------------------------
 try:
     SPREADSHEET_ID = st.secrets.get("SPREADSHEET_ID", "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4")
@@ -336,10 +337,25 @@ except Exception:
     SPREADSHEET_ID = "1t_jPaLp5lP8Yg5yJQb_U8NaIF7BS0DyLfqJaoAvehr4"
     FATURA_SHEET_ID = "1PUXXGAfn8dmqqR1qCcrJMMF32wUGng_MHpQ7-5GSbOY"
 
+def get_gspread_client():
+    try:
+        credentials = dict(st.secrets["gcp_service_account"])
+        gc = gspread.service_account_from_dict(credentials)
+        return gc
+    except Exception as e:
+        return None
+
 @st.cache_data(ttl=300)
 def load_sheet_by_gid(spreadsheet_id, gid):
     url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/gviz/tq?tqx=out:csv&gid={gid}"
     return pd.read_csv(url)
+
+# Mapeamento dos meses para colunas do Excel/Google Sheets na aba principal
+MES_PARA_COLUNA = {
+    'jan': 'B', 'fev': 'C', 'mar': 'D', 'abr': 'E',
+    'mai': 'F', 'jun': 'G', 'jul': 'H', 'ago': 'I',
+    'set': 'J', 'out': 'K', 'nov': 'L', 'dez': 'M'
+}
 
 # -------------------------------------------------------------
 # 3. HEADER EXECUTIVE & BENCHMARKS DE MERCADO
@@ -386,7 +402,7 @@ try:
         mes_selecionado = st.multiselect(
             "Período em Análise", 
             meses, 
-            default=[m for m in meses if m in ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out']],
+            default=[m for m in meses if m in ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov']],
             key="main_meses"
         )
 
@@ -522,11 +538,12 @@ try:
         # -------------------------------------------------------------
         # 🚀 ESTRUTURA PRINCIPAL EM TABS CORPORATIVAS
         # -------------------------------------------------------------
-        tab_exec, tab_c6, tab_invest, tab_ia_hub = st.tabs([
+        tab_exec, tab_c6, tab_invest, tab_ia_hub, tab_lancamento = st.tabs([
             "🏠 Resumo Executivo",
             "🖤 Cartão C6 & Faturas",
             "🏛️ Carteira de Ativos",
-            "🔮 Projeções & IA"
+            "🔮 Projeções & IA",
+            "📝 Lançar Dados"
         ])
 
         # =========================================================
@@ -1241,6 +1258,153 @@ try:
                 col_r1.metric("Pós-Fixado (Liquidez)", "42%", "Alocação Adequada")
                 col_r2.metric("Inflação (IPCA+ 2050)", "38%", "+ R$ 1.200 (Sugerido)")
                 col_r3.metric("Renda Variável / FIIs", "20%", "+ R$ 800 (Sugerido)")
+
+        # =========================================================
+        # TAB 5: 📝 FORMULÁRIO DE LANÇAMENTO DIRETO NA PLANILHA
+        # =========================================================
+        with tab_lancamento:
+            st.markdown("### 📝 Lançamento Direto de Dados na Planilha")
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 25px;'>Preencha os valores abaixo para gravar diretamente no Google Sheets sem precisar abrir a planilha.</p>", unsafe_allow_html=True)
+
+            sub_tab_2026, sub_tab_aportes = st.tabs(["📊 Aba Principal (2026)", "🏛️ Aportes de Ativos"])
+
+            # --- SUB-TAB A: ABA PRINCIPAL (2026) ---
+            with sub_tab_2026:
+                st.markdown("##### 📅 Lançamento Mensal na Aba Principal (2026)")
+                
+                col_l1, col_l2 = st.columns([1, 2])
+                with col_l1:
+                    mes_lanc = st.selectbox("Selecione o Mês:", list(MES_PARA_COLUNA.keys()), index=10) # nov por padrão
+                    coluna_excel = MES_PARA_COLUNA[mes_lanc]
+                    st.info(f"📍 Os dados serão gravados na **Coluna {coluna_excel}** da aba **`2026`**.")
+
+                st.markdown("---")
+                
+                with st.form("form_lancamento_2026"):
+                    st.markdown("##### 🟢 Receitas (Linhas 2 e 3)")
+                    cr1, cr2 = st.columns(2)
+                    with cr1:
+                        val_salario = st.number_input("Salário Líquido (Linha 2):", min_value=0.0, step=100.0, format="%.2f")
+                    with cr2:
+                        val_outras_rec = st.number_input("Outras Entradas (Linha 3):", min_value=0.0, step=50.0, format="%.2f")
+
+                    st.markdown("##### 🔴 Despesas Operacionais (Linhas 5 a 17)")
+                    cd1, cd2, cd3 = st.columns(3)
+                    
+                    # Mapeamento exato das categorias conforme linhas do Excel
+                    dict_despesas = {
+                        5: "C6 - Fatura Fixo", 6: "Outros Fixo", 7: "Empréstimo Consignado",
+                        8: "Itaú Fatura / Outros", 9: "C6 Fatura Variável", 10: "Nubank Fatura",
+                        11: "Mercado Pago Fatura", 12: "Água / Luz / Gás", 13: "Lazer / Viagens",
+                        14: "Mercado / Alimentação", 15: "Saúde / Farmácia", 17: "Outros Variáveis"
+                    }
+
+                    valores_despesas = {}
+                    for i, (lin, cat_nome) in enumerate(dict_despesas.items()):
+                        target_col = [cd1, cd2, cd3][i % 3]
+                        with target_col:
+                            valores_despesas[lin] = st.number_input(f"{cat_nome} (Linha {lin}):", min_value=0.0, step=50.0, format="%.2f")
+
+                    st.markdown("##### 🔵 Investimentos / Aportes (Linhas 22 a 30)")
+                    ci1, ci2, ci3 = st.columns(3)
+
+                    dict_invest = {
+                        22: "C6 - Tesouro IPCA+ 2050", 23: "C6 - Tesouro 2035",
+                        24: "C6 - MXRF11", 25: "C6 - CDB IPCA + 7,9%",
+                        26: "Mercado Pago (120% CDI)", 27: "Caixinha / Reserva",
+                        28: "Outros Investimentos 1", 29: "Outros Investimentos 2",
+                        30: "Outros Investimentos 3"
+                    }
+
+                    valores_invest = {}
+                    for i, (lin, inv_nome) in enumerate(dict_invest.items()):
+                        target_col = [ci1, ci2, ci3][i % 3]
+                        with target_col:
+                            valores_invest[lin] = st.number_input(f"{inv_nome} (Linha {lin}):", min_value=0.0, step=50.0, format="%.2f")
+
+                    btn_salvar_2026 = st.form_submit_button("💾 Salvar na Aba 2026", use_container_width=True)
+
+                    if btn_salvar_2026:
+                        gc = get_gspread_client()
+                        if gc is None:
+                            st.error("🚨 Erro na conexão. Verifique se as credenciais 'gcp_service_account' foram adicionadas nos Secrets do Streamlit.")
+                        else:
+                            try:
+                                with st.spinner(f"Gravando dados do mês {mes_lanc.upper()} na aba 2026..."):
+                                    sh = gc.open_by_key(SPREADSHEET_ID)
+                                    ws = sh.worksheet("2026")
+
+                                    # Lista de atualizações em lote (Batch update)
+                                    batch_updates = []
+
+                                    # Receitas
+                                    if val_salario > 0:
+                                        batch_updates.append({'range': f'{coluna_excel}2', 'values': [[val_salario]]})
+                                    if val_outras_rec > 0:
+                                        batch_updates.append({'range': f'{coluna_excel}3', 'values': [[val_outras_rec]]})
+
+                                    # Despesas
+                                    for lin, val in valores_despesas.items():
+                                        if val > 0:
+                                            batch_updates.append({'range': f'{coluna_excel}{lin}', 'values': [[val]]})
+
+                                    # Investimentos
+                                    for lin, val in valores_invest.items():
+                                        if val > 0:
+                                            batch_updates.append({'range': f'{coluna_excel}{lin}', 'values': [[val]]})
+
+                                    if batch_updates:
+                                        ws.batch_update(batch_updates)
+                                        st.cache_data.clear()
+                                        st.success(f"✅ Sucesso! {len(batch_updates)} células atualizadas para {mes_lanc.upper()} (Coluna {coluna_excel}).")
+                                        time.sleep(1)
+                                        st.rerun()
+                                    else:
+                                        st.warning("⚠️ Nenhum valor maior que R$ 0,00 foi informado para salvar.")
+
+                            except Exception as ex_gspread:
+                                st.error(f"Erro ao salvar na planilha: {str(ex_gspread)}")
+
+            # --- SUB-TAB B: APORTES EM ATIVOS (ABAS INDIVIDUAIS) ---
+            with sub_tab_aportes:
+                st.markdown("##### 🏛️ Lançamento de Aporte nas Abas Individuais dos Ativos")
+                
+                with st.form("form_aporte_ativo"):
+                    ativo_alvo = st.selectbox("Selecione o Ativo:", ["Tesouro 2035", "IPCA +2050", "MXRF11"])
+                    
+                    ca1, ca2, ca3, ca4 = st.columns(4)
+                    with ca1:
+                        dt_aporte = st.date_input("Data do Aporte:")
+                    with ca2:
+                        qtd_aporte = st.number_input("Quantidade / Cotas:", min_value=0.0, step=1.0, format="%.2f")
+                    with ca3:
+                        pu_taxa = st.number_input("Preço Unitário / Taxa (R$ ou %):", min_value=0.0, step=0.1, format="%.2f")
+                    with ca4:
+                        v_total_aporte = st.number_input("Valor Total Aportado (R$):", min_value=0.0, step=50.0, format="%.2f")
+
+                    btn_salvar_aporte = st.form_submit_button("💾 Registrar Aporte no Ativo", use_container_width=True)
+
+                    if btn_salvar_aporte:
+                        gc = get_gspread_client()
+                        if gc is None:
+                            st.error("🚨 Erro na conexão com o Google Sheets.")
+                        else:
+                            try:
+                                with st.spinner(f"Registrando aporte na aba '{ativo_alvo}'..."):
+                                    sh = gc.open_by_key(SPREADSHEET_ID)
+                                    ws_ativo = sh.worksheet(ativo_alvo)
+                                    
+                                    dt_str = dt_aporte.strftime("%d/%m/%Y")
+                                    nova_linha = [dt_str, qtd_aporte, pu_taxa, v_total_aporte]
+                                    
+                                    ws_ativo.append_row(nova_linha)
+                                    st.cache_data.clear()
+                                    st.success(f"✅ Aporte de R$ {v_total_aporte:,.2f} registrado com sucesso na aba **{ativo_alvo}**!")
+                                    time.sleep(1)
+                                    st.rerun()
+
+                            except Exception as ex_ap:
+                                st.error(f"Erro ao registrar aporte: {str(ex_ap)}")
 
     else:
         st.warning("⚠️ Selecione ao menos um mês no filtro para carregar os relatórios.")
