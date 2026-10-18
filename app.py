@@ -242,7 +242,7 @@ def check_password():
                 with c_img2:
                     st.image("eu.jpg", use_container_width=True)
             
-            st.markdown("<h2 style='text-align: center; color: #58A6FF; margin-bottom: 2px; font-weight:800;'>💎 Wealth Management</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: #58A6FF; margin-bottom: 2px; font-weight:800;'>💎 Gestão de Património</h2>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center; color: #8B949E; font-size: 0.90rem; font-weight: 500; margin-bottom: 25px;'>Painel Executivo de Gestão Patrimonial | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
 
             with st.form("login_form"):
