@@ -811,10 +811,10 @@ try:
                 st.warning("⚠️ Dados da Fatura C6 indisponíveis no momento. Verifique a permissão de acesso à planilha.")
 
         # =========================================================
-        # TAB 3: CARTEIRA DE INVESTIMENTOS & ALOCAÇÃO
+        # TAB 3: CARTEIRA DE INVESTIMENTOS & CALENDÁRIO DE EVENTOS
         # =========================================================
         with tab_invest:
-            st.markdown("### 🏛️ Posição Patrimonial & Curva de Investimentos")
+            st.markdown("### 🏛️ Posição Patrimonial & Estrutura de Ativos")
             st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Evolução de ativos e análise de alocação por classe</p>", unsafe_allow_html=True)
 
             df_inv_ultimo = df_carteira_investimentos[df_carteira_investimentos["Mês"] == ultimo_mes].copy()
@@ -916,15 +916,73 @@ try:
                     hide_index=True
                 )
 
+            # =========================================================
+            # 🆕 2. CALENDÁRIO DE EVENTOS & PROVENTOS FUTUROS
+            # =========================================================
+            st.markdown("<hr style='border-color: #21262D;'>", unsafe_allow_html=True)
+            st.markdown("### 📅 Calendário de Eventos & Proventos Futuros (Cash Flow Timeline)")
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem;'>Mapeamento de pagamentos de dividendos e linha do tempo de vencimentos da carteira</p>", unsafe_allow_html=True)
+
+            # Leitura do MXRF11 para cálculo de dividendos mensais
+            cotas_mxrf_cal = 500
+            try:
+                df_mxrf_cal = load_sheet_by_gid(SPREADSHEET_ID, "1282765175").dropna(how='all')
+                tot_c = pd.to_numeric(df_mxrf_cal.iloc[:, 1], errors='coerce').sum()
+                if tot_c > 0: cotas_mxrf_cal = tot_c
+            except Exception: pass
+
+            dyd_mensal_est = cotas_mxrf_cal * 0.09  # Estimativa média R$ 0,09 por cota
+            
+            c_ev1, c_ev2, c_ev3 = st.columns(3)
+            with c_ev1:
+                st.markdown(f"""
+                <div class="kpi-card" style="border-color: #3FB950;">
+                    <div class="kpi-title">Proventos MXRF11 (Est. Mensal)</div>
+                    <div class="kpi-value val-green">R$ {dyd_mensal_est:,.2f}</div>
+                    <div class="kpi-badge badge-pos">~{cotas_mxrf_cal:.0f} Cotas Ativas</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with c_ev2:
+                st.markdown("""
+                <div class="kpi-card" style="border-color: #58A6FF;">
+                    <div class="kpi-title">Data-Com MXRF11</div>
+                    <div class="kpi-value val-blue">Último Dia Útil</div>
+                    <div class="kpi-badge badge-neu">Fechamento do Mês</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with c_ev3:
+                st.markdown("""
+                <div class="kpi-card" style="border-color: #A371F7;">
+                    <div class="kpi-title">Data Pagamento FII</div>
+                    <div class="kpi-value val-purple">10º Dia Útil</div>
+                    <div class="kpi-badge badge-neu">Crédito Automático</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("##### ⏳ Linha do Tempo de Vencimentos & Resgates da Carteira")
+
+            eventos_vencimento = [
+                {"Ano": "2026", "Ativo / Título": "C6 - CDB Prefixado 15,7% a.a.", "Classe": "Pré-Fixado", "Status / Ação": "Vencimento em 03/06/2026", "Impacto": "Liquidação em Conta"},
+                {"Ano": "2026", "Ativo / Título": "Nubank LCA Banco BV", "Classe": "Isento (LCA)", "Status / Ação": "Vencimento em 13/03/2026", "Impacto": "Resgate de Capital"},
+                {"Ano": "2027", "Ativo / Título": "C6 - CDB IPCA + 7,9% a.a.", "Classe": "Inflação (IPCA)", "Status / Ação": "Vencimento em 19/04/2027", "Impacto": "Realocação Estratégica"},
+                {"Ano": "2035", "Ativo / Título": "C6 - Tesouro 2035 Juros Semestrais", "Classe": "Tesouro Direto", "Status / Ação": "Vencimento Principal em 2035", "Impacto": "Cupons Semestrais Ativos"},
+                {"Ano": "2050", "Ativo / Título": "C6 - Tesouro IPCA+ 2050", "Classe": "Aposentadoria / Longo Prazo", "Status / Ação": "Acúmulo de Longo Prazo", "Impacto": "Foco na Curva de Juros Compostos"}
+            ]
+
+            df_timeline = pd.DataFrame(eventos_vencimento)
+            st.dataframe(df_timeline, use_container_width=True, hide_index=True)
+
         # =========================================================
-        # TAB 4: HUB DE INTELIGÊNCIA ARTIFICIAL & PROJEÇÕES PREDITIVAS
+        # TAB 4: HUB DE INTELIGÊNCIA ARTIFICIAL, PROJEÇÕES & INFLAÇÃO REAL
         # =========================================================
         with tab_ia_hub:
-            st.markdown("### 🤖 Hub de Inteligência & Projeções Preditivas")
-            st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Simulação dinâmica conectada com as abas do Google Sheets e análise algorítmica</p>", unsafe_allow_html=True)
+            st.markdown("### 🤖 Hub de Inteligência, Projeções & Inflação")
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Simulação dinâmica conectada com as abas do Google Sheets, monitor de inflação e análise algorítmica</p>", unsafe_allow_html=True)
 
-            aba_ia1, aba_ia2, aba_ia3, aba_ia4, aba_ia5 = st.tabs([
+            aba_ia1, aba_ia_ipca, aba_ia2, aba_ia3, aba_ia4, aba_ia5 = st.tabs([
                 "🔮 Projeções Patrimoniais",
+                "🛡️ Inflação Real & Poder de Compra",
                 "💬 Copilot Financeiro",
                 "📜 Diagnóstico Executivo",
                 "🚨 Detector de Anomalias",
@@ -1053,6 +1111,48 @@ try:
                     fig_proj.update_traces(textposition="outside", textfont=dict(size=11, color="#C9D1D9"))
                     fig_proj.update_yaxes(tickprefix="R$ ", tickformat="~s")
                     st.plotly_chart(fig_proj, use_container_width=True, config=plotly_config)
+
+            # =========================================================
+            # 🆕 3. MONITOR DE INFLAÇÃO REAL E PODER DE COMPRA
+            # =========================================================
+            with aba_ia_ipca:
+                st.markdown("##### 🛡️ Monitor de Inflação Real e Preservação do Poder de Compra")
+                st.caption("Acompanhamento do rendimento real descontando a inflação projetada (IPCA ~4.0% a.a.):")
+
+                col_ip1, col_ip2, col_ip3 = st.columns(3)
+                col_ip1.metric("Taxa Média IPCA+ Contratada", "IPCA + 6.85% a.a.", "Proteção de Longo Prazo")
+                col_ip2.metric("IPCA Acumulado / Projeção", "4.00% a.a.", "Inflação de Referência")
+                col_ip3.metric("Ganho Real Líquido Estimado", "+ 6.20% a.a.", "Acima da Inflação (Real)")
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Gráfico comparativo: Crescimento Bruto vs Crescimento Real Ajustado pelo IPCA
+                anos_ipca = [str(y) for y in range(2026, 2036)]
+                patrimonio_bruto = []
+                patrimonio_real = []
+                
+                val_base = patrimonio_total_ultimo_mes if patrimonio_total_ultimo_mes > 0 else 50000.0
+                
+                for i, y in enumerate(range(2026, 2036)):
+                    # Taxa nominal de ~10% a.a. vs Taxa descontada a inflação de ~6% a.a.
+                    v_bruto = val_base * ((1 + 0.10) ** i)
+                    v_real = val_base * ((1 + 0.06) ** i)
+                    patrimonio_bruto.append(v_bruto)
+                    patrimonio_real.append(v_real)
+
+                fig_ipca_comp = go.Figure()
+                fig_ipca_comp.add_trace(go.Scatter(x=anos_ipca, y=patrimonio_bruto, mode='lines+markers', name='Crescimento Bruto (Nominal)', line=dict(color='#3FB950', width=3)))
+                fig_ipca_comp.add_trace(go.Scatter(x=anos_ipca, y=patrimonio_real, mode='lines+markers', name='Poder de Compra Real (Descontado IPCA)', line=dict(color='#58A6FF', width=3, dash='dash')))
+
+                fig_ipca_comp.update_layout(
+                    plotly_theme["layout"],
+                    title="📈 Comparativo: Crescimento Nominal vs Poder de Compra Real (2026-2035)",
+                    height=400,
+                    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+                    margin=dict(l=20, r=20, t=40, b=40)
+                )
+                fig_ipca_comp.update_yaxes(tickprefix="R$ ", tickformat="~s")
+                st.plotly_chart(fig_ipca_comp, use_container_width=True, config=plotly_config)
 
             # --- 2. COPILOT FINANCEIRO DE LINGUAGEM NATURAL ---
             with aba_ia2:
