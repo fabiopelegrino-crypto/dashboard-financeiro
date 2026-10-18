@@ -917,29 +917,49 @@ try:
                 )
 
             # =========================================================
-            # 🆕 2. CALENDÁRIO DE EVENTOS & PROVENTOS FUTUROS
+            # CALENDÁRIO DE EVENTOS & PROVENTOS AUTOMÁTICOS
             # =========================================================
             st.markdown("<hr style='border-color: #21262D;'>", unsafe_allow_html=True)
             st.markdown("### 📅 Calendário de Eventos & Proventos Futuros (Cash Flow Timeline)")
-            st.markdown("<p style='color: #8B949E; font-size: 0.85rem;'>Mapeamento de pagamentos de dividendos e linha do tempo de vencimentos da carteira</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem;'>Mapeamento automático de dividendos e linha do tempo de vencimentos da carteira</p>", unsafe_allow_html=True)
 
-            # Leitura do MXRF11 para cálculo de dividendos mensais
-            cotas_mxrf_cal = 500
+            # 1. Leitura de Cotas da Planilha
+            cotas_mxrf_cal = 423
             try:
                 df_mxrf_cal = load_sheet_by_gid(SPREADSHEET_ID, "1282765175").dropna(how='all')
                 tot_c = pd.to_numeric(df_mxrf_cal.iloc[:, 1], errors='coerce').sum()
                 if tot_c > 0: cotas_mxrf_cal = tot_c
             except Exception: pass
 
-            dyd_mensal_est = cotas_mxrf_cal * 0.09  # Estimativa média R$ 0,09 por cota
-            
+            # 2. Busca Automática do Último Dividendo por Cota (Brapi API)
+            @st.cache_data(ttl=3600)
+            def get_ultimo_dividendo_mxrf():
+                try:
+                    url = "https://brapi.dev/api/quote/MXRF11?dividends=true"
+                    res = requests.get(url, timeout=5).json()
+                    dividends_list = res['results'][0]['dividendsData']['cashDividends']
+                    
+                    if dividends_list:
+                        df_divs = pd.DataFrame(dividends_list)
+                        df_divs['paymentDate'] = pd.to_datetime(df_divs['paymentDate'], errors='coerce')
+                        df_divs = df_divs.sort_values(by='paymentDate', ascending=False)
+                        val_cota = float(df_divs.iloc[0]['rate'])
+                        return val_cota
+                except Exception:
+                    pass
+                return 0.10
+
+            valor_cota_atual = get_ultimo_dividendo_mxrf()
+            dyd_mensal_est = cotas_mxrf_cal * valor_cota_atual
+
+            # 3. Exibição nos Cards com o Valor Atualizado
             c_ev1, c_ev2, c_ev3 = st.columns(3)
             with c_ev1:
                 st.markdown(f"""
                 <div class="kpi-card" style="border-color: #3FB950;">
                     <div class="kpi-title">Proventos MXRF11 (Est. Mensal)</div>
                     <div class="kpi-value val-green">R$ {dyd_mensal_est:,.2f}</div>
-                    <div class="kpi-badge badge-pos">~{cotas_mxrf_cal:.0f} Cotas Ativas</div>
+                    <div class="kpi-badge badge-pos">~{cotas_mxrf_cal:.0f} Cotas × R$ {valor_cota_atual:.2f}/cota</div>
                 </div>
                 """, unsafe_allow_html=True)
             with c_ev2:
@@ -1112,9 +1132,7 @@ try:
                     fig_proj.update_yaxes(tickprefix="R$ ", tickformat="~s")
                     st.plotly_chart(fig_proj, use_container_width=True, config=plotly_config)
 
-            # =========================================================
-            # 🆕 3. MONITOR DE INFLAÇÃO REAL E PODER DE COMPRA
-            # =========================================================
+            # --- MONITOR DE INFLAÇÃO REAL E PODER DE COMPRA ---
             with aba_ia_ipca:
                 st.markdown("##### 🛡️ Monitor de Inflação Real e Preservação do Poder de Compra")
                 st.caption("Acompanhamento do rendimento real descontando a inflação projetada (IPCA ~4.0% a.a.):")
@@ -1126,7 +1144,6 @@ try:
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # Gráfico comparativo: Crescimento Bruto vs Crescimento Real Ajustado pelo IPCA
                 anos_ipca = [str(y) for y in range(2026, 2036)]
                 patrimonio_bruto = []
                 patrimonio_real = []
@@ -1134,7 +1151,6 @@ try:
                 val_base = patrimonio_total_ultimo_mes if patrimonio_total_ultimo_mes > 0 else 50000.0
                 
                 for i, y in enumerate(range(2026, 2036)):
-                    # Taxa nominal de ~10% a.a. vs Taxa descontada a inflação de ~6% a.a.
                     v_bruto = val_base * ((1 + 0.10) ** i)
                     v_real = val_base * ((1 + 0.06) ** i)
                     patrimonio_bruto.append(v_bruto)
