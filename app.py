@@ -13,7 +13,7 @@ import os
 # -------------------------------------------------------------
 st.set_page_config(
     page_title="Finances AI | Fabio Pelegrino", 
-    page_icon="💎", 
+    page_icon="💼", 
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -122,7 +122,7 @@ executive_css = """
     [data-testid="stImage"] img {
         border-radius: 50% !important;
         border: 2px solid #58A6FF !important;
-        box-shadow: 0 0 15px rgba(88, 166, 255, 0.3) !important;
+        box-shadow: 0 0 20px rgba(88, 166, 255, 0.25) !important;
         object-fit: cover !important;
     }
 
@@ -210,7 +210,7 @@ def quebrar_linha_nome(texto, max_chars=18):
     return "<br>".join([" ".join(palavras[:meio]), " ".join(palavras[meio:])])
 
 # -------------------------------------------------------------
-# 1.1 AUTENTICAÇÃO SEGURA COM IDENTIDADE VISUAL
+# 1.1 AUTENTICAÇÃO SEGURA COM DESIGN MINIMALISTA EXECUTIVO
 # -------------------------------------------------------------
 def check_password():
     MAX_TENTATIVAS = 3
@@ -233,17 +233,23 @@ def check_password():
         st.session_state["password_correct"] = False
 
     if not st.session_state["password_correct"]:
-        col1, col2, col3 = st.columns([1, 1.5, 1])
+        col1, col2, col3 = st.columns([1, 1.4, 1])
         with col2:
-            st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 35px;'></div>", unsafe_allow_html=True)
             
             if os.path.exists("eu.jpg"):
                 c_img1, c_img2, c_img3 = st.columns([1, 1.1, 1])
                 with c_img2:
                     st.image("eu.jpg", use_container_width=True)
             
-            st.markdown("<h2 style='text-align: center; color: #58A6FF; margin-bottom: 2px; font-weight:800;'>💎 Gestão de Património</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #8B949E; font-size: 0.90rem; font-weight: 500; margin-bottom: 25px;'>Painel Executivo de Gestão Patrimonial | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
+            st.markdown("""
+            <h2 style='text-align: center; background: linear-gradient(180deg, #F0F6FC 0%, #58A6FF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: -0.02em; margin-top: 15px; margin-bottom: 4px;'>
+                Gestão Patrimonial
+            </h2>
+            <p style='text-align: center; color: #8B949E; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 25px;'>
+                TERMINAL EXECUTIVO | FABIO PELEGRINO
+            </p>
+            """, unsafe_allow_html=True)
 
             with st.form("login_form"):
                 password_input = st.text_input("Senha de acesso:", type="password", placeholder="Digite sua credencial...")
@@ -338,7 +344,7 @@ def load_sheet_by_gid(spreadsheet_id, gid):
 # -------------------------------------------------------------
 # 3. HEADER EXECUTIVE & BENCHMARKS DE MERCADO
 # -------------------------------------------------------------
-st.markdown("<h2 style='margin-bottom: 0px; font-weight: 800; color: #F0F6FC;'>💎 Terminal Financeiro & Patrimonial</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='margin-bottom: 0px; font-weight: 800; color: #F0F6FC;'>Terminal Financeiro & Patrimonial</h2>", unsafe_allow_html=True)
 st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 15px;'>Visão Consolidada de Ativos, DRE, Cartão de Crédito e Mercado | <b>Fabio Pelegrino</b></p>", unsafe_allow_html=True)
 
 m1, m2, m3, m4 = st.columns(4)
