@@ -342,7 +342,7 @@ def get_gspread_client():
         credentials = dict(st.secrets["gcp_service_account"])
         gc = gspread.service_account_from_dict(credentials)
         return gc
-    except Exception as e:
+    except Exception:
         return None
 
 @st.cache_data(ttl=300)
@@ -422,7 +422,7 @@ try:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 4. TRATAMENTO DOS DADOS FINANCEIROS
+    # 4. TRATAMENTO DOS DADOS FINANCEIROS (MAPEAMENTO FIEL À PLANILHA)
     # -------------------------------------------------------------
     if mes_selecionado:
         mes_selecionado = [m for m in meses_ordem_cronologica if m in mes_selecionado]
@@ -447,12 +447,13 @@ try:
 
         df_melted["Valor"] = df_melted["Valor_Raw"].apply(parse_br_val)
         
+        # Mapeamento estrito conforme o layout real:
         df_receitas = df_melted[df_melted["linha_excel"].isin([2, 3])]
         df_despesas = df_melted[df_melted["linha_excel"].isin([5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17])]
-        df_saldo_investido = df_melted[df_melted["linha_excel"] == 16]
+        df_saldo_investido = df_melted[df_melted["linha_excel"] == 16] # Valor do aporte tirado do salário
         
         df_carteira_investimentos = df_melted[
-            (df_melted["linha_excel"].between(20, 30)) & 
+            (df_melted["linha_excel"].between(22, 30)) & 
             (~df_melted["Categoria"].str.upper().str.contains("TOTAL")) &
             (df_melted["Categoria"].str.upper() != "INVESTIMENTOS")
         ]
@@ -518,7 +519,7 @@ try:
         with kpi3:
             st.markdown(f"""
             <div class="kpi-card">
-                <div class="kpi-title">Aportes no Período</div>
+                <div class="kpi-title">Aportes no Período (Linha 16)</div>
                 <div class="kpi-value val-blue">R$ {total_investido_mes:,.2f}</div>
                 <div class="kpi-badge badge-neu">Investimento Líquido</div>
             </div>
@@ -630,7 +631,6 @@ try:
                     total_fatura = df_fatura_compras["Valor_Num"].sum()
                     num_compras = len(df_fatura_compras)
                     
-                    # CÁLCULO DE PARCELAS FUTURAS
                     parcelas_futuras_list = []
                     total_parcelado_futuro = 0.0
 
@@ -1281,22 +1281,31 @@ try:
                 st.markdown("---")
                 
                 with st.form("form_lancamento_2026"):
-                    st.markdown("##### 🟢 Receitas (Linhas 2 e 3)")
+                    st.markdown("##### 🟢 Receitas")
                     cr1, cr2 = st.columns(2)
                     with cr1:
                         val_salario = st.number_input("Salário Líquido (Linha 2):", min_value=0.0, step=100.0, format="%.2f")
                     with cr2:
-                        val_outras_rec = st.number_input("Outras Entradas (Linha 3):", min_value=0.0, step=50.0, format="%.2f")
+                        val_outras_rec = st.number_input("(+) Outras Entradas (Linha 3):", min_value=0.0, step=50.0, format="%.2f")
 
-                    st.markdown("##### 🔴 Despesas Operacionais (Linhas 5 a 17)")
+                    st.markdown("##### 🔴 Despesas Operacionais e Aporte do Mês")
                     cd1, cd2, cd3 = st.columns(3)
                     
-                    # Mapeamento exato das categorias conforme linhas do Excel
+                    # MAPEAMENTO EXATO DA PLANILHA
                     dict_despesas = {
-                        5: "C6 - Fatura Fixo", 6: "Outros Fixo", 7: "Empréstimo Consignado",
-                        8: "Itaú Fatura / Outros", 9: "C6 Fatura Variável", 10: "Nubank Fatura",
-                        11: "Mercado Pago Fatura", 12: "Água / Luz / Gás", 13: "Lazer / Viagens",
-                        14: "Mercado / Alimentação", 15: "Saúde / Farmácia", 17: "Outros Variáveis"
+                        5: "(-) Energia",
+                        6: "(-) Cartão C6",
+                        7: "(-) Cartão Nubank",
+                        8: "(-) Plano TIM",
+                        9: "(-) Internet",
+                        10: "(-) MEI",
+                        11: "(-) Cartão Mercado Pago",
+                        12: "(-) Plano de Saúde - Pais",
+                        13: "(-) Outras despesas (lavanderia)",
+                        14: "(-) Outras despesas (faculdade)",
+                        15: "(-) Outras despesas - PIX",
+                        16: "(-) Investimentos (Aporte do Mês)",
+                        17: "(-) Vôlei"
                     }
 
                     valores_despesas = {}
@@ -1305,15 +1314,20 @@ try:
                         with target_col:
                             valores_despesas[lin] = st.number_input(f"{cat_nome} (Linha {lin}):", min_value=0.0, step=50.0, format="%.2f")
 
-                    st.markdown("##### 🔵 Investimentos / Aportes (Linhas 22 a 30)")
+                    st.markdown("##### 🔵 Investimentos / Ativos (Saldos da Carteira)")
                     ci1, ci2, ci3 = st.columns(3)
 
+                    # MAPEAMENTO EXATO DOS ATIVOS DA CARTEIRA
                     dict_invest = {
-                        22: "C6 - Tesouro IPCA+ 2050", 23: "C6 - Tesouro 2035",
-                        24: "C6 - MXRF11", 25: "C6 - CDB IPCA + 7,9%",
-                        26: "Mercado Pago (120% CDI)", 27: "Caixinha / Reserva",
-                        28: "Outros Investimentos 1", 29: "Outros Investimentos 2",
-                        30: "Outros Investimentos 3"
+                        22: "C6 - CDB C6 Prefixado (15,7% a.a.)",
+                        23: "Nubank 115% CDI (líquido)",
+                        24: "C6 - Tesouro IPCA 2050 (investido)",
+                        25: "C6 - Tesouro 2035 Juros Semestrais (investido)",
+                        26: "Mercado Pago - 120% CDI",
+                        27: "Nubank LCA - líquido",
+                        28: "C6 - MXRF11",
+                        29: "C6 - Carbon Ouro",
+                        30: "C6 - IPCA + 7,9% Venc em 19/04/2027"
                     }
 
                     valores_invest = {}
@@ -1334,21 +1348,17 @@ try:
                                     sh = gc.open_by_key(SPREADSHEET_ID)
                                     ws = sh.worksheet("2026")
 
-                                    # Lista de atualizações em lote (Batch update)
                                     batch_updates = []
 
-                                    # Receitas
                                     if val_salario > 0:
                                         batch_updates.append({'range': f'{coluna_excel}2', 'values': [[val_salario]]})
                                     if val_outras_rec > 0:
                                         batch_updates.append({'range': f'{coluna_excel}3', 'values': [[val_outras_rec]]})
 
-                                    # Despesas
                                     for lin, val in valores_despesas.items():
                                         if val > 0:
                                             batch_updates.append({'range': f'{coluna_excel}{lin}', 'values': [[val]]})
 
-                                    # Investimentos
                                     for lin, val in valores_invest.items():
                                         if val > 0:
                                             batch_updates.append({'range': f'{coluna_excel}{lin}', 'values': [[val]]})
