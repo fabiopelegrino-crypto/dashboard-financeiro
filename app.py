@@ -596,7 +596,7 @@ try:
                 st.plotly_chart(fig_evo, use_container_width=True, config=plotly_config)
 
         # =========================================================
-        # TAB 2: CARTÃO C6 BANK & ANÁLISE COMPARATIVA MULTI-FATURA
+        # TAB 2: CARTÃO C6 BANK & ANÁLISE COMPARATIVA MULTI-FATURA (AJUSTADO GID NOV 26)
         # =========================================================
         with tab_c6:
             st.markdown("""
@@ -607,28 +607,34 @@ try:
             """, unsafe_allow_html=True)
             st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento individual e evolução entre faturas (Out/26, Nov/26, etc.)</p>", unsafe_allow_html=True)
 
-            def carregar_fatura_aba(nome_aba):
-                aba_enc = urllib.parse.quote(nome_aba)
-                url_aba = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba_enc}"
+            # Função otimizada que lê via GID para garantir a aba correta
+            def carregar_fatura_por_gid_ou_nome(spreadsheet_id, gid, nome_aba_fallback):
                 try:
-                    df = load_data(url_aba)
-                    df.columns = [str(c).strip() for c in df.columns]
-                    col_val = [c for c in df.columns if "Valor" in c and "R$" in c]
-                    col_str = col_val[0] if col_val else "Valor (em R$)"
-                    df["Valor_Num"] = df[col_str].apply(parse_br_val)
-                    df["Aba_Origem"] = nome_aba
-                    return df[df["Valor_Num"] > 0].copy(), col_str
+                    df = load_sheet_by_gid(spreadsheet_id, gid)
                 except Exception:
-                    return pd.DataFrame(), "Valor (em R$)"
+                    aba_enc = urllib.parse.quote(nome_aba_fallback)
+                    url_aba = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/gviz/tq?tqx=out:csv&sheet={aba_enc}"
+                    df = load_data(url_aba)
 
-            df_out26, col_out = carregar_fatura_aba("Out / 26")
-            df_nov26, col_nov = carregar_fatura_aba("Nov / 26")
+                df.columns = [str(c).strip() for c in df.columns]
+                col_val = [c for c in df.columns if "Valor" in c and "R$" in c]
+                col_str = col_val[0] if col_val else ("Valor (em R$)" if "Valor (em R$)" in df.columns else df.columns[-1])
+                
+                df["Valor_Num"] = df[col_str].apply(parse_br_val)
+                df["Aba_Origem"] = nome_aba_fallback
+                return df[df["Valor_Num"] > 0].copy(), col_str
+
+            # Outubro (gid=0 ou nome da aba 'Out / 26')
+            df_out26, col_out = carregar_fatura_por_gid_ou_nome(FATURA_SHEET_ID, "0", "Out / 26")
+            
+            # Novembro / 26 via GID direto 1132930517
+            df_nov26, col_nov = carregar_fatura_por_gid_ou_nome(FATURA_SHEET_ID, "1132930517", "Nov 26")
 
             c_sel_fatura, c_space = st.columns([1.5, 2])
             with c_sel_fatura:
                 fatura_ativa_op = st.selectbox(
                     "Fatura para Detalhamento:", 
-                    ["Nov / 26 (Mais Recente)", "Out / 26", "📊 Visão Comparativa (Out vs Nov)"],
+                    ["Nov 26 (Mais Recente)", "Out / 26", "📊 Visão Comparativa (Out vs Nov)"],
                     index=0
                 )
 
@@ -679,7 +685,7 @@ try:
                     g_out["Mês"] = "Out / 26"
 
                     g_nov = df_nov26.groupby("Categoria_Limpa")["Valor_Num"].sum().reset_index()
-                    g_nov["Mês"] = "Nov / 26"
+                    g_nov["Mês"] = "Nov 26"
 
                     df_comp_cat = pd.concat([g_out, g_nov], ignore_index=True)
 
@@ -688,7 +694,7 @@ try:
                         x="Valor_Num", y="Categoria_Limpa", color="Mês",
                         barmode="group", orientation="h",
                         labels={"Valor_Num": "R$", "Categoria_Limpa": ""},
-                        color_discrete_map={"Out / 26": "#58A6FF", "Nov / 26": "#F85149"}
+                        color_discrete_map={"Out / 26": "#58A6FF", "Nov 26": "#F85149"}
                     )
                     fig_comp_bar.update_layout(
                         plotly_theme["layout"],
@@ -700,7 +706,7 @@ try:
                     st.plotly_chart(fig_comp_bar, use_container_width=True, config=plotly_config)
 
             else:
-                aba_fatura_atual = "Nov / 26" if "Nov" in fatura_ativa_op else "Out / 26"
+                aba_fatura_atual = "Nov 26" if "Nov" in fatura_ativa_op else "Out / 26"
                 df_fatura_compras = df_nov26 if "Nov" in fatura_ativa_op else df_out26
                 col_valor_str = col_nov if "Nov" in fatura_ativa_op else col_out
 
