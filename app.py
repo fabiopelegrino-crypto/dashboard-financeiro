@@ -424,6 +424,14 @@ try:
     # -------------------------------------------------------------
     # 4. TRATAMENTO DOS DADOS FINANCEIROS
     # -------------------------------------------------------------
+    def parse_br_val(v):
+        if pd.isna(v): return 0.0
+        v_str = str(v).replace("R$", "").strip()
+        if not v_str or v_str == "-": return 0.0
+        if "," in v_str:
+            v_str = v_str.replace(".", "").replace(",", ".")
+        return pd.to_numeric(v_str, errors="coerce") or 0.0
+
     if mes_selecionado:
         mes_selecionado = [m for m in meses_ordem_cronologica if m in mes_selecionado]
         df_raw['linha_excel'] = df_raw.index + 2
@@ -436,15 +444,6 @@ try:
         )
         
         df_melted["Mês"] = pd.Categorical(df_melted["Mês"], categories=meses_ordem_cronologica, ordered=True)
-        
-        def parse_br_val(v):
-            if pd.isna(v): return 0.0
-            v_str = str(v).replace("R$", "").strip()
-            if not v_str or v_str == "-": return 0.0
-            if "," in v_str:
-                v_str = v_str.replace(".", "").replace(",", ".")
-            return pd.to_numeric(v_str, errors="coerce") or 0.0
-
         df_melted["Valor"] = df_melted["Valor_Raw"].apply(parse_br_val)
         
         df_receitas = df_melted[df_melted["linha_excel"].isin([2, 3])]
@@ -597,36 +596,115 @@ try:
                 st.plotly_chart(fig_evo, use_container_width=True, config=plotly_config)
 
         # =========================================================
-        # TAB 2: CARTÃO C6 BANK & COMPROMISSOS FUTUROS
+        # TAB 2: CARTÃO C6 BANK & ANÁLISE COMPARATIVA MULTI-FATURA
         # =========================================================
         with tab_c6:
             st.markdown("""
             <h3 style='display: flex; align-items: center; margin-bottom: 0px;'>
                 <span class="c6-logo-badge">C6</span>
-                Gestão da Fatura C6 Bank & Compromissos
+                Gestão da Fatura C6 Bank & Comparativo MoM
             </h3>
             """, unsafe_allow_html=True)
-            st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento de compras, parcelamento futuro e faturamento</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #8B949E; font-size: 0.85rem; margin-bottom: 20px;'>Acompanhamento individual e evolução entre faturas (Out/26, Nov/26, etc.)</p>", unsafe_allow_html=True)
 
-            try:
-                aba_encoded = urllib.parse.quote("Out / 26")
-                fatura_csv_url = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba_encoded}"
-                
+            def carregar_fatura_aba(nome_aba):
+                aba_enc = urllib.parse.quote(nome_aba)
+                url_aba = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet={aba_enc}"
                 try:
-                    df_fatura_raw = load_data(fatura_csv_url)
+                    df = load_data(url_aba)
+                    df.columns = [str(c).strip() for c in df.columns]
+                    col_val = [c for c in df.columns if "Valor" in c and "R$" in c]
+                    col_str = col_val[0] if col_val else "Valor (em R$)"
+                    df["Valor_Num"] = df[col_str].apply(parse_br_val)
+                    df["Aba_Origem"] = nome_aba
+                    return df[df["Valor_Num"] > 0].copy(), col_str
                 except Exception:
-                    fatura_csv_fallback = f"https://docs.google.com/spreadsheets/d/{FATURA_SHEET_ID}/gviz/tq?tqx=out:csv"
-                    df_fatura_raw = load_data(fatura_csv_fallback)
+                    return pd.DataFrame(), "Valor (em R$)"
 
-                df_fatura_raw.columns = [str(c).strip() for c in df_fatura_raw.columns]
-                col_valor = [c for c in df_fatura_raw.columns if "Valor" in c and "R$" in c]
-                col_valor_str = col_valor[0] if col_valor else "Valor (em R$)"
+            df_out26, col_out = carregar_fatura_aba("Out / 26")
+            df_nov26, col_nov = carregar_fatura_aba("Nov / 26")
 
-                if col_valor_str in df_fatura_raw.columns:
-                    df_fatura = df_fatura_raw.copy()
-                    df_fatura["Valor_Num"] = df_fatura[col_valor_str].apply(parse_br_val)
-                    df_fatura_compras = df_fatura[df_fatura["Valor_Num"] > 0].copy()
-                    
+            c_sel_fatura, c_space = st.columns([1.5, 2])
+            with c_sel_fatura:
+                fatura_ativa_op = st.selectbox(
+                    "Fatura para Detalhamento:", 
+                    ["Nov / 26 (Mais Recente)", "Out / 26", "📊 Visão Comparativa (Out vs Nov)"],
+                    index=0
+                )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            if "Visão Comparativa" in fatura_ativa_op:
+                st.markdown("##### ⚔️ Comparativo de Gastos: Outubro/26 vs Novembro/26")
+                
+                tot_out = df_out26["Valor_Num"].sum() if not df_out26.empty else 0.0
+                tot_nov = df_nov26["Valor_Num"].sum() if not df_nov26.empty else 0.0
+                diff_mom = tot_nov - tot_out
+                diff_mom_pct = ((diff_mom / tot_out) * 100) if tot_out > 0 else 0.0
+
+                cmom1, cmom2, cmom3 = st.columns(3)
+                with cmom1:
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Fatura Outubro / 26</div>
+                        <div class="kpi-value val-blue">R$ {tot_out:,.2f}</div>
+                        <div class="kpi-badge badge-neu">{len(df_out26)} Compras</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with cmom2:
+                    st.markdown(f"""
+                    <div class="kpi-card">
+                        <div class="kpi-title">Fatura Novembro / 26</div>
+                        <div class="kpi-value val-red">R$ {tot_nov:,.2f}</div>
+                        <div class="kpi-badge badge-neu">{len(df_nov26)} Compras</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with cmom3:
+                    st.markdown(f"""
+                    <div class="kpi-card" style="border-color: {'#F85149' if diff_mom > 0 else '#3FB950'};">
+                        <div class="kpi-title">Variação MoM (Out ➔ Nov)</div>
+                        <div class="kpi-value {'val-red' if diff_mom > 0 else 'val-green'}">R$ {diff_mom:+,.2f}</div>
+                        <div class="kpi-badge {'badge-neg' if diff_mom > 0 else 'badge-pos'}">{diff_mom_pct:+.1f}% no mês</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("##### 📊 Comparativo por Categoria entre os Meses")
+
+                if not df_out26.empty and not df_nov26.empty:
+                    df_out26["Categoria_Limpa"] = df_out26["Categoria"].apply(simplificar_categoria_fatura)
+                    df_nov26["Categoria_Limpa"] = df_nov26["Categoria"].apply(simplificar_categoria_fatura)
+
+                    g_out = df_out26.groupby("Categoria_Limpa")["Valor_Num"].sum().reset_index()
+                    g_out["Mês"] = "Out / 26"
+
+                    g_nov = df_nov26.groupby("Categoria_Limpa")["Valor_Num"].sum().reset_index()
+                    g_nov["Mês"] = "Nov / 26"
+
+                    df_comp_cat = pd.concat([g_out, g_nov], ignore_index=True)
+
+                    fig_comp_bar = px.bar(
+                        df_comp_cat,
+                        x="Valor_Num", y="Categoria_Limpa", color="Mês",
+                        barmode="group", orientation="h",
+                        labels={"Valor_Num": "R$", "Categoria_Limpa": ""},
+                        color_discrete_map={"Out / 26": "#58A6FF", "Nov / 26": "#F85149"}
+                    )
+                    fig_comp_bar.update_layout(
+                        plotly_theme["layout"],
+                        height=480,
+                        legend=dict(orientation="h", yanchor="top", y=1.1, xanchor="center", x=0.5),
+                        margin=dict(l=140, r=20, t=30, b=20)
+                    )
+                    fig_comp_bar.update_xaxes(tickprefix="R$ ", tickformat="~s")
+                    st.plotly_chart(fig_comp_bar, use_container_width=True, config=plotly_config)
+
+            else:
+                aba_fatura_atual = "Nov / 26" if "Nov" in fatura_ativa_op else "Out / 26"
+                df_fatura_compras = df_nov26 if "Nov" in fatura_ativa_op else df_out26
+                col_valor_str = col_nov if "Nov" in fatura_ativa_op else col_out
+
+                if not df_fatura_compras.empty:
                     total_fatura = df_fatura_compras["Valor_Num"].sum()
                     num_compras = len(df_fatura_compras)
                     
@@ -664,7 +742,7 @@ try:
                     with cf1:
                         st.markdown(f"""
                         <div class="kpi-card" style="border-color: #F85149;">
-                            <div class="kpi-title">Fatura Atual (Out/26)</div>
+                            <div class="kpi-title">Fatura Selecionada ({aba_fatura_atual})</div>
                             <div class="kpi-value val-red">R$ {total_fatura:,.2f}</div>
                             <div class="kpi-badge badge-neg">{num_compras} Compras</div>
                         </div>
@@ -713,7 +791,7 @@ try:
                     col_fat1, col_fat2 = st.columns([1.2, 1])
 
                     with col_fat1:
-                        st.markdown("##### 📌 Gastos da Fatura por Categoria")
+                        st.markdown(f"##### 📌 Gastos da Fatura ({aba_fatura_atual}) por Categoria")
                         if "Categoria" in df_fatura_compras.columns:
                             df_fatura_compras["Categoria_Limpa"] = df_fatura_compras["Categoria"].apply(simplificar_categoria_fatura)
                             
@@ -760,7 +838,7 @@ try:
                             st.plotly_chart(fig_top10, use_container_width=True, config=plotly_config)
 
                     st.markdown("##### 🔎 Pesquisa Rápida na Fatura")
-                    busca_compra = st.text_input("Buscar por loja, estabelecimento ou categoria:", "", placeholder="Digite para filtrar...")
+                    busca_compra = st.text_input("Buscar por loja, estabelecimento ou categoria:", "", placeholder="Digite para filtrar...", key=f"src_{aba_fatura_atual}")
                     
                     cols_exibir = [c for c in ["Data de compra", "Descrição", "Categoria", "Parcela", col_valor_str] if c in df_fatura_compras.columns]
                     df_fat_display = df_fatura_compras[cols_exibir].copy()
@@ -798,7 +876,7 @@ try:
                                 names="Categoria_Limpa",
                                 values="Valor_Total",
                                 hole=0.55,
-                                title="Participação na Fatura",
+                                title=f"Participação na Fatura ({aba_fatura_atual})",
                                 color_discrete_sequence=px.colors.qualitative.Pastel
                             )
                             fig_fat_donut.update_traces(
@@ -828,9 +906,8 @@ try:
                                 use_container_width=True,
                                 hide_index=True
                             )
-
-            except Exception as e_fat:
-                st.warning("⚠️ Dados da Fatura C6 indisponíveis no momento. Verifique a permissão de acesso à planilha.")
+                else:
+                    st.warning(f"⚠️ Não foi possível carregar os dados da aba '{aba_fatura_atual}'. Verifique a planilha.")
 
         # =========================================================
         # TAB 3: CARTEIRA DE INVESTIMENTOS & CALENDÁRIO DE EVENTOS
@@ -945,7 +1022,6 @@ try:
             st.markdown("### 📅 Calendário de Eventos & Proventos Futuros (Cash Flow Timeline)")
             st.markdown("<p style='color: #8B949E; font-size: 0.85rem;'>Mapeamento automático de dividendos e linha do tempo de vencimentos da carteira</p>", unsafe_allow_html=True)
 
-            # 1. Leitura de Cotas da Planilha
             cotas_mxrf_cal = 423
             try:
                 df_mxrf_cal = load_sheet_by_gid(SPREADSHEET_ID, "1282765175").dropna(how='all')
@@ -953,7 +1029,6 @@ try:
                 if tot_c > 0: cotas_mxrf_cal = tot_c
             except Exception: pass
 
-            # 2. Busca Automática do Último Dividendo por Cota (Brapi API)
             @st.cache_data(ttl=3600)
             def get_ultimo_dividendo_mxrf():
                 try:
@@ -974,7 +1049,6 @@ try:
             valor_cota_atual = get_ultimo_dividendo_mxrf()
             dyd_mensal_est = cotas_mxrf_cal * valor_cota_atual
 
-            # 3. Exibição nos Cards com o Valor Atualizado
             c_ev1, c_ev2, c_ev3 = st.columns(3)
             with c_ev1:
                 st.markdown(f"""
@@ -1031,7 +1105,6 @@ try:
                 "🎯 Rebalanceamento"
             ])
 
-            # --- 1. PROJEÇÕES PREDITIVAS REALISTAS ---
             with aba_ia1:
                 st.markdown("##### 🔮 Simulação de Projeção Dinâmica do Patrimônio")
                 st.caption("Cálculos configurados conforme regras e contratos das abas reais da planilha:")
@@ -1154,7 +1227,6 @@ try:
                     fig_proj.update_yaxes(tickprefix="R$ ", tickformat="~s")
                     st.plotly_chart(fig_proj, use_container_width=True, config=plotly_config)
 
-            # --- MONITOR DE INFLAÇÃO REAL E PODER DE COMPRA ---
             with aba_ia_ipca:
                 st.markdown("##### 🛡️ Monitor de Inflação Real e Preservação do Poder de Compra")
                 st.caption("Acompanhamento do rendimento real descontando a inflação projetada (IPCA ~4.0% a.a.):")
@@ -1192,10 +1264,9 @@ try:
                 fig_ipca_comp.update_yaxes(tickprefix="R$ ", tickformat="~s")
                 st.plotly_chart(fig_ipca_comp, use_container_width=True, config=plotly_config)
 
-            # --- 2. COPILOT FINANCEIRO DE LINGUAGEM NATURAL ---
             with aba_ia2:
                 st.markdown("##### 💬 Assistente Virtual de Finanças")
-                q_user = st.text_input("Consulte seus indicadores ou despesas:", placeholder="Ex: Qual foi meu maior gasto em outubro?")
+                q_user = st.text_input("Consulte seus indicadores ou despesas:", placeholder="Ex: Qual foi meu maior gasto em novembro?")
                 
                 if q_user:
                     q_clean = q_user.lower()
@@ -1220,7 +1291,6 @@ try:
                             - **Patrimônio Atual ({ultimo_mes.upper()}):** R$ {patrimonio_total_ultimo_mes:,.2f}
                             """)
 
-            # --- 3. DIAGNÓSTICO EXECUTIVO MENSAL ---
             with aba_ia3:
                 taxa_poup = ((total_rec - total_desp) / total_rec * 100) if total_rec > 0 else 0
                 poup_status = "🟢 Excelente (Acima da meta de 20%)" if taxa_poup >= 20 else "🟡 Atencioso (Abaixo da meta de 20%)"
@@ -1237,7 +1307,6 @@ try:
                 </div>
                 """, unsafe_allow_html=True)
 
-            # --- 4. DETECTOR DE ANOMALIAS ---
             with aba_ia4:
                 st.markdown("##### 🚨 Identificação de Custos Atípicos")
                 df_desp_m = df_despesas[df_despesas["Mês"] == ultimo_mes].copy()
@@ -1250,7 +1319,6 @@ try:
                     else: st.success("🟢 Nenhuma anomalia crítica de despesas encontrada no período.")
                 else: st.info("Sem lançamentos de despesas suficientes para cálculo no período.")
 
-            # --- 5. REBALANCEAMENTO DE CARTEIRA ---
             with aba_ia5:
                 st.markdown("##### 🎯 Sugestão Algorítmica de Alocação")
                 col_r1, col_r2, col_r3 = st.columns(3)
@@ -1267,13 +1335,12 @@ try:
 
             sub_tab_2026, sub_tab_aportes = st.tabs(["📊 Aba Principal (2026)", "🏛️ Aportes de Ativos"])
 
-            # --- SUB-TAB A: ABA PRINCIPAL (2026) ---
             with sub_tab_2026:
                 st.markdown("##### 📅 Lançamento Mensal na Aba Principal (2026)")
                 
                 col_l1, col_l2 = st.columns([1, 2])
                 with col_l1:
-                    mes_lanc = st.selectbox("Selecione o Mês:", list(MES_PARA_COLUNA.keys()), index=10) # nov por padrão
+                    mes_lanc = st.selectbox("Selecione o Mês:", list(MES_PARA_COLUNA.keys()), index=10)
                     coluna_excel = MES_PARA_COLUNA[mes_lanc]
                     st.info(f"📍 Os dados serão gravados na **Coluna {coluna_excel}** da aba **`2026`**.")
 
@@ -1388,7 +1455,6 @@ try:
                     with ca3:
                         preco_titulo = st.number_input("Preço do Título (R$) (B):", min_value=0.0, step=10.0, format="%.2f", key="pr_ipca")
                     
-                    # Cálculo reativo fora do form
                     val_investido_calc_ipca = qtd_titulos * preco_titulo
                     
                     st.markdown(f"""
@@ -1434,7 +1500,6 @@ try:
                     with cm3:
                         val_cota_in = st.number_input("Valor Cota (R$) (B):", min_value=0.0, step=0.01, format="%.2f", value=float(mxrf11_preco_num), key="pr_mx")
 
-                    # Cálculo reativo fora do form
                     val_inv_mxrf_calc = cotas_mxrf_in * val_cota_in
 
                     st.markdown(f"""
